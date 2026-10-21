@@ -42,6 +42,14 @@ const isVerifyModalOpen = ref(false)
 const stationForVerify = ref<string>('')
 const stationHistory = ref<TelemetryRecord[]>([])
 
+// Helper to normalize station plantation zone (maps unconfigured/empty zones to Unassigned)
+function getStationZone(station: Station): string {
+  if (!station.plantationZone || station.plantationZone.trim() === '' || station.isProfileComplete === false || station.plantationZone === 'Unassigned (Pending Setup)') {
+    return 'Unassigned (Pending Setup)'
+  }
+  return station.plantationZone
+}
+
 // Plantation Zone Filter State (Displays one zone at once to prevent clutter)
 const selectedZone = ref<string>('')
 
@@ -49,16 +57,19 @@ const selectedZone = ref<string>('')
 const availableZones = computed(() => {
   const zones = new Set<string>()
   store.stations.forEach(s => {
-    if (s.plantationZone) {
-      zones.add(s.plantationZone)
-    }
+    zones.add(getStationZone(s))
   })
-  return Array.from(zones)
+  // Configured zones first, Unassigned at the end
+  return Array.from(zones).sort((a, b) => {
+    if (a.startsWith('Unassigned')) return 1
+    if (b.startsWith('Unassigned')) return -1
+    return a.localeCompare(b)
+  })
 })
 
 // Count stations in a given zone
 function getZoneStationCount(zone: string): number {
-  return store.stations.filter(s => s.plantationZone === zone).length
+  return store.stations.filter(s => getStationZone(s) === zone).length
 }
 
 // Auto-initialize selectedZone to selectedStation's zone or first available zone
@@ -66,8 +77,8 @@ watch(
   () => [store.stations, store.selectedStation],
   () => {
     if (!selectedZone.value) {
-      if (store.selectedStation?.plantationZone) {
-        selectedZone.value = store.selectedStation.plantationZone
+      if (store.selectedStation) {
+        selectedZone.value = getStationZone(store.selectedStation)
       } else if (availableZones.value.length > 0) {
         selectedZone.value = availableZones.value[0]
       }
@@ -80,7 +91,7 @@ watch(
 function handleZoneChange(newZone: string) {
   selectedZone.value = newZone
   if (newZone !== 'all') {
-    const stationsInZone = store.stations.filter(s => s.plantationZone === newZone)
+    const stationsInZone = store.stations.filter(s => getStationZone(s) === newZone)
     // If the currently selected station is outside this zone, select the first station of this zone
     if (stationsInZone.length > 0 && !stationsInZone.some(s => s.id === store.selectedStationId)) {
       handleSelectStation(stationsInZone[0])
@@ -93,7 +104,7 @@ const filteredStations = computed(() => {
   if (!selectedZone.value || selectedZone.value === 'all') {
     return store.stations
   }
-  return store.stations.filter(s => s.plantationZone === selectedZone.value)
+  return store.stations.filter(s => getStationZone(s) === selectedZone.value)
 })
 
 function handleOpenAddStation() {
@@ -125,8 +136,9 @@ async function loadSelectedStationHistory(stationId?: string) {
 
 async function handleSelectStation(station: Station) {
   store.selectStation(station.id)
-  if (selectedZone.value !== 'all' && station.plantationZone && station.plantationZone !== selectedZone.value) {
-    selectedZone.value = station.plantationZone
+  const stZone = getStationZone(station)
+  if (selectedZone.value !== 'all' && stZone && stZone !== selectedZone.value) {
+    selectedZone.value = stZone
   }
   await loadSelectedStationHistory(station.id)
 }
@@ -163,8 +175,8 @@ onMounted(async () => {
     const stId = String(route.query.station)
     store.selectStation(stId)
     const st = store.stations.find(s => s.id === stId)
-    if (st?.plantationZone) {
-      selectedZone.value = st.plantationZone
+    if (st) {
+      selectedZone.value = getStationZone(st)
     }
     await loadSelectedStationHistory(stId)
     nextTick(() => {

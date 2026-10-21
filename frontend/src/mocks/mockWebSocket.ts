@@ -226,7 +226,7 @@ class MockWebSocketMonitor {
       description: 'Auto-registered from initial telemetry packet. Awaiting field metadata configuration.',
       type: 'peripheral',
       coordinates: [2.58910, 102.09340],
-      plantationZone: '',
+      plantationZone: 'Unassigned (Pending Setup)',
       treeTag: '',
       isProfileComplete: false,
       moistureThreshold: 65.0,
