@@ -1,0 +1,30 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@lucide/vue": "^1.59.0",
+    "@types/leaflet": "^1.9.22",
+    "@types/node": "^26.6.5",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "typescript": "~7.0.2",
+    "vite": "^8.3.4",
+    "vue": "^3.5.44"
+  },
+  "dependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "chart.js": "^4.5.1",
+    "leaflet": "^1.9.4",
+    "lucide-vue-next": "^1.0.0",
+    "pinia": "^4.1.0",
+    "tailwindcss": "^4.3.3",
+    "vue-chartjs": "^5.3.4",
+    "vue-router": "^4.6.4"
+  }
+}
