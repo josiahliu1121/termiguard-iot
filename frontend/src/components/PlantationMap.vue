@@ -9,6 +9,7 @@ import { Layers, Plus, ZoomIn, Radio, Sun, ShieldAlert } from '@lucide/vue'
 const props = defineProps<{
   interactive?: boolean
   heightClass?: string
+  stations?: Station[]
 }>()
 
 const emit = defineEmits<{
@@ -122,7 +123,8 @@ function renderNetwork() {
   }
 
   // 3. Draw Station Markers and LoRa P2P Relay lines
-  store.stations.forEach(station => {
+  const stationsToRender = props.stations !== undefined ? props.stations : store.stations
+  stationsToRender.forEach(station => {
     const isMaster = station.type === 'master'
     const color = getTierColor(station.confidenceTier)
     const isSelected = store.selectedStationId === station.id
@@ -244,6 +246,10 @@ function resetView() {
 }
 
 watch(() => store.stations, () => {
+  renderNetwork()
+}, { deep: true })
+
+watch(() => props.stations, () => {
   renderNetwork()
 }, { deep: true })
 

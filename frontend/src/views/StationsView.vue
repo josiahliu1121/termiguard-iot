@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { usePlantationStore } from '@/stores/plantationStore'
 import PlantationMap from '@/components/PlantationMap.vue'
@@ -29,28 +29,153 @@ import {
   Droplets,
   Thermometer,
   Zap,
-  Compass
+  Compass,
+  Search,
+  X,
+  ChevronDown,
+  RotateCcw,
+  Filter,
+  Layers
 } from '@lucide/vue'
 
 const store = usePlantationStore()
 const router = useRouter()
-const filterMode = ref<'all' | 'alerting' | 'unconfigured' | 'master'>('all')
 const isModalOpen = ref(false)
 const stationToEdit = ref<Station | null>(null)
 const isVerifyModalOpen = ref(false)
 const stationForVerify = ref<string>('')
 
+// Filter & Dynamic Search State
+const searchQuery = ref<string>('')
+const isSearchDropdownOpen = ref<boolean>(false)
+const searchContainerRef = ref<HTMLElement | null>(null)
+const selectedZone = ref<string>('all')
+const selectedThreat = ref<string>('all')
+const selectedOperatingState = ref<string>('all')
+const selectedAuditStatus = ref<string>('all')
+
+// Helper for normalized plantation zone (guarantees unconfigured stations map to Unassigned)
+function getStationZone(station: Station): string {
+  if (!station.plantationZone || station.plantationZone.trim() === '' || station.isProfileComplete === false || station.plantationZone === 'Unassigned (Pending Setup)') {
+    return 'Unassigned (Pending Setup)'
+  }
+  return station.plantationZone
+}
+
+// Unique list of available plantation zones
+const availableZones = computed(() => {
+  const zones = new Set<string>()
+  store.stations.forEach(s => {
+    zones.add(getStationZone(s))
+  })
+  return Array.from(zones).sort((a, b) => {
+    if (a.startsWith('Unassigned')) return 1
+    if (b.startsWith('Unassigned')) return -1
+    return a.localeCompare(b)
+  })
+})
+
+function getZoneStationCount(zone: string): number {
+  return store.stations.filter(s => getStationZone(s) === zone).length
+}
+
+// Dynamic autocomplete search suggestions
+const searchSuggestions = computed(() => {
+  const q = searchQuery.value.trim().toLowerCase()
+  if (!q) return store.stations
+  return store.stations.filter(s =>
+    s.code.toLowerCase().includes(q) ||
+    s.id.toLowerCase().includes(q) ||
+    s.name.toLowerCase().includes(q) ||
+    (s.treeTag && s.treeTag.toLowerCase().includes(q)) ||
+    getStationZone(s).toLowerCase().includes(q)
+  )
+})
+
+// Unified multi-criteria filtered stations
 const filteredStations = computed(() => {
-  if (filterMode.value === 'alerting') {
-    return store.stations.filter(s => !s.isAcousticGated)
+  return store.stations.filter(s => {
+    // 1. Search Query Filter
+    if (searchQuery.value.trim()) {
+      const q = searchQuery.value.trim().toLowerCase()
+      const match =
+        s.code.toLowerCase().includes(q) ||
+        s.id.toLowerCase().includes(q) ||
+        s.name.toLowerCase().includes(q) ||
+        (s.treeTag && s.treeTag.toLowerCase().includes(q)) ||
+        getStationZone(s).toLowerCase().includes(q)
+      if (!match) return false
+    }
+
+    // 2. Plantation Zone Filter
+    if (selectedZone.value !== 'all') {
+      if (getStationZone(s) !== selectedZone.value) return false
+    }
+
+    // 3. Threat Level Filter
+    if (selectedThreat.value !== 'all') {
+      const level = s.threatLevel || s.confidenceTier
+      if (selectedThreat.value === 'high' && level !== 'High') return false
+      if (selectedThreat.value === 'medium' && level !== 'Medium') return false
+      if (selectedThreat.value === 'low' && level !== 'Low' && level !== 'Safe') return false
+    }
+
+    // 4. Operating State Filter
+    if (selectedOperatingState.value !== 'all') {
+      if (selectedOperatingState.value === 'active' && s.isAcousticGated) return false
+      if (selectedOperatingState.value === 'sleep' && !s.isAcousticGated) return false
+      if (selectedOperatingState.value === 'master' && s.type !== 'master') return false
+      if (selectedOperatingState.value === 'unconfigured' && s.isProfileComplete !== false) return false
+    }
+
+    // 5. Human Ground-Truth Audit Status Filter
+    if (selectedAuditStatus.value !== 'all') {
+      if (selectedAuditStatus.value === 'unverified' && s.humanVerificationStatus !== 'unverified') return false
+      if (selectedAuditStatus.value === 'verified_clean' && s.humanVerificationStatus !== 'verified_clean') return false
+      if (selectedAuditStatus.value === 'termites_present' && s.humanVerificationStatus !== 'termites_present') return false
+    }
+
+    return true
+  })
+})
+
+const hasActiveFilters = computed(() => {
+  return (
+    searchQuery.value.trim() !== '' ||
+    selectedZone.value !== 'all' ||
+    selectedThreat.value !== 'all' ||
+    selectedOperatingState.value !== 'all' ||
+    selectedAuditStatus.value !== 'all'
+  )
+})
+
+function resetFilters() {
+  searchQuery.value = ''
+  selectedZone.value = 'all'
+  selectedThreat.value = 'all'
+  selectedOperatingState.value = 'all'
+  selectedAuditStatus.value = 'all'
+  isSearchDropdownOpen.value = false
+}
+
+function selectSuggestion(station: Station) {
+  searchQuery.value = station.code
+  isSearchDropdownOpen.value = false
+  store.selectStation(station.id)
+}
+
+function handleClickOutside(event: MouseEvent) {
+  if (searchContainerRef.value && !searchContainerRef.value.contains(event.target as Node)) {
+    isSearchDropdownOpen.value = false
   }
-  if (filterMode.value === 'unconfigured') {
-    return store.stations.filter(s => s.isProfileComplete === false)
-  }
-  if (filterMode.value === 'master') {
-    return store.stations.filter(s => s.type === 'master')
-  }
-  return store.stations
+}
+
+onMounted(() => {
+  window.addEventListener('click', handleClickOutside)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('click', handleClickOutside)
 })
 
 function openAddModal() {
@@ -125,52 +250,19 @@ function getStationThreatBadge(station: Station) {
 <template>
   <div class="space-y-6">
     <!-- View Header -->
-    <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800">
+    <div class="flex flex-wrap items-center justify-between gap-4 bg-slate-900/80 p-4 rounded-2xl border border-slate-800 shadow-lg">
       <div>
         <h2 class="text-lg font-black text-white flex items-center gap-2">
           <MapPin :size="20" class="text-emerald-400" />
-          <span>Plantation Field Layout & In-Ground Bait Stations</span>
+          <span>Plantation Field Layout &amp; In-Ground Bait Stations</span>
         </h2>
         <p class="text-xs text-slate-400">Ultra-Low-Power Gated Architecture &bull; 15m Sampling when Moisture &ge; 65% &bull; 24h Daily Keepalive</p>
       </div>
 
       <div class="flex items-center gap-3">
-        <!-- Filter Tabs -->
-        <div class="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center gap-1 text-xs">
-          <button
-            @click="filterMode = 'all'"
-            class="px-3 py-1.5 rounded-lg font-medium transition"
-            :class="filterMode === 'all' ? 'bg-emerald-600 text-white font-semibold' : 'text-slate-400 hover:text-white'"
-          >
-            All Stations ({{ store.stations.length }})
-          </button>
-          <button
-            @click="filterMode = 'alerting'"
-            class="px-3 py-1.5 rounded-lg font-medium transition"
-            :class="filterMode === 'alerting' ? 'bg-amber-600 text-white font-semibold' : 'text-slate-400 hover:text-white'"
-          >
-            Acoustic Active ({{ store.triggeredStationsCount }})
-          </button>
-          <button
-            v-if="store.unconfiguredStations.length > 0"
-            @click="filterMode = 'unconfigured'"
-            class="px-3 py-1.5 rounded-lg font-medium transition"
-            :class="filterMode === 'unconfigured' ? 'bg-indigo-600 text-white font-semibold' : 'text-indigo-300 hover:text-white'"
-          >
-            Awaiting Setup ({{ store.unconfiguredStations.length }})
-          </button>
-          <button
-            @click="filterMode = 'master'"
-            class="px-3 py-1.5 rounded-lg font-medium transition"
-            :class="filterMode === 'master' ? 'bg-slate-800 text-white font-semibold' : 'text-slate-400 hover:text-white'"
-          >
-            Master Hub
-          </button>
-        </div>
-
         <button
           @click="handleSimulateNewDiscovery"
-          class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl text-xs font-semibold shadow-lg flex items-center gap-1.5 transition"
+          class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 px-3.5 py-2 rounded-xl text-xs font-semibold shadow-lg flex items-center gap-1.5 transition"
           title="Simulate a newly deployed IoT bait station transmitting its initial LoRa packet"
         >
           <Radio :size="14" class="animate-pulse" />
@@ -184,6 +276,166 @@ function getStationThreatBadge(station: Station) {
           <Plus :size="16" />
           <span>Add New Station</span>
         </button>
+      </div>
+    </div>
+
+    <!-- Dedicated GIS Station Search & Multi-Parameter Filter Bar -->
+    <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-xl space-y-3">
+      <div class="flex flex-wrap items-center justify-between gap-3 pb-2.5 border-b border-slate-800/80">
+        <div class="flex items-center gap-2">
+          <Filter :size="16" class="text-emerald-400" />
+          <h3 class="text-xs font-bold text-white uppercase tracking-wider">GIS Station Filter &amp; Search</h3>
+          <span class="text-xs text-slate-500 font-normal hidden sm:inline">&bull; Real-time map marker and table parameter filtering</span>
+        </div>
+
+        <div class="flex items-center gap-2.5">
+          <span class="text-xs font-mono text-slate-400 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
+            Showing <strong class="text-emerald-400">{{ filteredStations.length }}</strong> of {{ store.stations.length }} stations
+          </span>
+          <button
+            v-if="hasActiveFilters"
+            @click="resetFilters"
+            class="px-2.5 py-1 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-semibold flex items-center gap-1.5 transition shadow"
+            title="Reset all active filters"
+          >
+            <RotateCcw :size="12" />
+            <span>Reset Filters</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Controls Row: 5 Filter Parameters -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <!-- 1. Station Node Dynamic Autocomplete Search -->
+        <div class="relative" ref="searchContainerRef">
+          <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-semibold">Station Search</label>
+          <div class="relative">
+            <Search :size="14" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            <input
+              v-model="searchQuery"
+              @focus="isSearchDropdownOpen = true"
+              @input="isSearchDropdownOpen = true"
+              type="text"
+              placeholder="Enter station (e.g. ST-02, Hub)..."
+              class="w-full bg-slate-950 border border-slate-700 hover:border-slate-600 focus:border-emerald-500 rounded-xl pl-8 pr-8 py-2 text-xs font-semibold text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition shadow-inner"
+            />
+            <button
+              v-if="searchQuery"
+              @click="searchQuery = ''; isSearchDropdownOpen = false"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white p-0.5 rounded-full"
+              title="Clear search"
+            >
+              <X :size="13" />
+            </button>
+          </div>
+
+          <!-- Dynamic Matching Dropdown Menu -->
+          <div
+            v-if="isSearchDropdownOpen && searchSuggestions.length > 0"
+            class="absolute left-0 right-0 top-full mt-1.5 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-slate-800 max-h-64 overflow-y-auto"
+          >
+            <div class="px-3 py-1.5 bg-slate-950 text-[10px] font-mono text-slate-400 flex items-center justify-between">
+              <span>Matching Nodes ({{ searchSuggestions.length }})</span>
+              <span class="text-slate-500 text-[9px]">Click to filter &amp; select</span>
+            </div>
+            <button
+              v-for="st in searchSuggestions"
+              :key="st.id"
+              @click="selectSuggestion(st)"
+              class="w-full text-left px-3.5 py-2.5 hover:bg-slate-800/80 transition flex items-center justify-between gap-2.5 group"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <span
+                  class="w-2 h-2 rounded-full shrink-0"
+                  :class="!st.isAcousticGated ? 'bg-amber-400 animate-ping' : 'bg-indigo-400'"
+                ></span>
+                <div class="truncate">
+                  <div class="flex items-center gap-1.5">
+                    <span class="font-bold font-mono text-xs text-white group-hover:text-emerald-400 transition">{{ st.code }}</span>
+                    <span v-if="st.type === 'master'" class="px-1 py-0.2 rounded bg-amber-950 text-amber-300 border border-amber-800 text-[9px] font-bold">HUB</span>
+                    <span v-else-if="st.isProfileComplete === false" class="px-1 py-0.2 rounded bg-indigo-950 text-indigo-300 border border-indigo-700/60 text-[9px] font-bold">NEW</span>
+                  </div>
+                  <div class="text-[10px] text-slate-400 truncate">{{ st.name }} &bull; {{ st.treeTag || 'No Tree Tag' }}</div>
+                </div>
+              </div>
+              <span
+                class="text-[9px] px-1.5 py-0.5 rounded font-bold border shrink-0"
+                :class="st.threatLevel === 'High' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : st.threatLevel === 'Medium' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'"
+              >
+                {{ st.threatLevel || 'Safe' }}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Plantation Zone Dropdown Selector -->
+        <div>
+          <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-semibold">Plantation Zone</label>
+          <div class="relative">
+            <select
+              v-model="selectedZone"
+              class="w-full bg-slate-950 border border-slate-700 hover:border-slate-600 focus:border-emerald-500 rounded-xl pl-3 pr-8 py-2 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer appearance-none shadow-inner"
+            >
+              <option value="all">All Plantation Zones ({{ store.stations.length }})</option>
+              <option v-for="zone in availableZones" :key="zone" :value="zone">
+                {{ zone }} ({{ getZoneStationCount(zone) }})
+              </option>
+            </select>
+            <ChevronDown :size="13" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+        </div>
+
+        <!-- 3. Infestation Threat Level Dropdown -->
+        <div>
+          <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-semibold">Infestation Threat</label>
+          <div class="relative">
+            <select
+              v-model="selectedThreat"
+              class="w-full bg-slate-950 border border-slate-700 hover:border-slate-600 focus:border-emerald-500 rounded-xl pl-3 pr-8 py-2 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer appearance-none shadow-inner"
+            >
+              <option value="all">All Threat Levels</option>
+              <option value="high">High Threat (ITI &gt; 70)</option>
+              <option value="medium">Medium Risk (ITI 40-70)</option>
+              <option value="low">Safe / Low Baseline</option>
+            </select>
+            <ChevronDown :size="13" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+        </div>
+
+        <!-- 4. Operating / Sensing State Dropdown -->
+        <div>
+          <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-semibold">Operating State</label>
+          <div class="relative">
+            <select
+              v-model="selectedOperatingState"
+              class="w-full bg-slate-950 border border-slate-700 hover:border-slate-600 focus:border-emerald-500 rounded-xl pl-3 pr-8 py-2 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer appearance-none shadow-inner"
+            >
+              <option value="all">All Operating Modes</option>
+              <option value="active">15m Active (Moisture &ge; 65%)</option>
+              <option value="sleep">Daily Keepalive (Sleep)</option>
+              <option value="master">Master Hub Gateway</option>
+              <option value="unconfigured">Awaiting Setup (New Go-Live)</option>
+            </select>
+            <ChevronDown :size="13" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+        </div>
+
+        <!-- 5. Human Ground-Truth Audit Status Dropdown -->
+        <div>
+          <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-semibold">Human Ground Truth</label>
+          <div class="relative">
+            <select
+              v-model="selectedAuditStatus"
+              class="w-full bg-slate-950 border border-slate-700 hover:border-slate-600 focus:border-emerald-500 rounded-xl pl-3 pr-8 py-2 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer appearance-none shadow-inner"
+            >
+              <option value="all">All Audit Statuses</option>
+              <option value="unverified">Needs Field Audit (Unverified)</option>
+              <option value="verified_clean">Verified Clean</option>
+              <option value="termites_present">Termites Confirmed</option>
+            </select>
+            <ChevronDown :size="13" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          </div>
+        </div>
       </div>
     </div>
 
@@ -254,6 +506,7 @@ function getStationThreatBadge(station: Station) {
     <!-- Plantation Map -->
     <PlantationMap
       height-class="h-[500px]"
+      :stations="filteredStations"
       @open-add-modal="openAddModal"
       @configure-station="openEditModal"
       @select-station="st => store.selectStation(st.id)"
@@ -304,6 +557,26 @@ function getStationThreatBadge(station: Station) {
             </tr>
           </thead>
           <tbody class="divide-y divide-slate-800/60 font-sans">
+            <!-- Empty state when no stations match filter -->
+            <tr v-if="filteredStations.length === 0">
+              <td colspan="10" class="py-14 text-center text-slate-400">
+                <div class="flex flex-col items-center justify-center gap-2.5">
+                  <div class="w-10 h-10 rounded-xl bg-slate-800/60 text-slate-400 flex items-center justify-center border border-slate-700">
+                    <Filter :size="20" />
+                  </div>
+                  <span class="text-sm font-semibold text-slate-200">No stations match the selected filter parameters</span>
+                  <span class="text-xs text-slate-400 max-w-md">Try clearing or loosening your station search query, plantation zone, or threat level filters.</span>
+                  <button
+                    @click="resetFilters"
+                    class="mt-2 px-3.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition shadow"
+                  >
+                    <RotateCcw :size="13" />
+                    <span>Reset All Filters</span>
+                  </button>
+                </div>
+              </td>
+            </tr>
+
             <tr
               v-for="st in filteredStations"
               :key="st.id"
