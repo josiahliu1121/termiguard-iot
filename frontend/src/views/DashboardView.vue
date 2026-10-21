@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { usePlantationStore } from '@/stores/plantationStore'
 import PlantationMap from '@/components/PlantationMap.vue'
@@ -26,7 +26,10 @@ import {
   BatteryCharging,
   Heart,
   ClipboardCheck,
-  History
+  History,
+  ChevronDown,
+  MapPin,
+  Layers
 } from '@lucide/vue'
 
 const store = usePlantationStore()
@@ -38,6 +41,60 @@ const stationToEdit = ref<Station | null>(null)
 const isVerifyModalOpen = ref(false)
 const stationForVerify = ref<string>('')
 const stationHistory = ref<TelemetryRecord[]>([])
+
+// Plantation Zone Filter State (Displays one zone at once to prevent clutter)
+const selectedZone = ref<string>('')
+
+// Unique list of available plantation zones from stations
+const availableZones = computed(() => {
+  const zones = new Set<string>()
+  store.stations.forEach(s => {
+    if (s.plantationZone) {
+      zones.add(s.plantationZone)
+    }
+  })
+  return Array.from(zones)
+})
+
+// Count stations in a given zone
+function getZoneStationCount(zone: string): number {
+  return store.stations.filter(s => s.plantationZone === zone).length
+}
+
+// Auto-initialize selectedZone to selectedStation's zone or first available zone
+watch(
+  () => [store.stations, store.selectedStation],
+  () => {
+    if (!selectedZone.value) {
+      if (store.selectedStation?.plantationZone) {
+        selectedZone.value = store.selectedStation.plantationZone
+      } else if (availableZones.value.length > 0) {
+        selectedZone.value = availableZones.value[0]
+      }
+    }
+  },
+  { immediate: true, deep: true }
+)
+
+// Handle manual zone change from dropdown
+function handleZoneChange(newZone: string) {
+  selectedZone.value = newZone
+  if (newZone !== 'all') {
+    const stationsInZone = store.stations.filter(s => s.plantationZone === newZone)
+    // If the currently selected station is outside this zone, select the first station of this zone
+    if (stationsInZone.length > 0 && !stationsInZone.some(s => s.id === store.selectedStationId)) {
+      handleSelectStation(stationsInZone[0])
+    }
+  }
+}
+
+// Filtered stations for cards display
+const filteredStations = computed(() => {
+  if (!selectedZone.value || selectedZone.value === 'all') {
+    return store.stations
+  }
+  return store.stations.filter(s => s.plantationZone === selectedZone.value)
+})
 
 function handleOpenAddStation() {
   stationToEdit.value = null
@@ -68,6 +125,9 @@ async function loadSelectedStationHistory(stationId?: string) {
 
 async function handleSelectStation(station: Station) {
   store.selectStation(station.id)
+  if (selectedZone.value !== 'all' && station.plantationZone && station.plantationZone !== selectedZone.value) {
+    selectedZone.value = station.plantationZone
+  }
   await loadSelectedStationHistory(station.id)
 }
 
@@ -102,6 +162,10 @@ onMounted(async () => {
   if (route.query.station) {
     const stId = String(route.query.station)
     store.selectStation(stId)
+    const st = store.stations.find(s => s.id === stId)
+    if (st?.plantationZone) {
+      selectedZone.value = st.plantationZone
+    }
     await loadSelectedStationHistory(stId)
     nextTick(() => {
       const el = document.getElementById('selected-station-deepdive')
@@ -309,18 +373,43 @@ onMounted(async () => {
           @open-add-modal="handleOpenAddStation"
         />
 
-        <!-- Station Selector Cards Header & Grid -->
-        <div class="flex items-center justify-between mb-1">
-          <div class="text-xs font-bold text-white flex items-center gap-2">
-            <span>Plantation Bait Stations ({{ store.stations.length }})</span>
-            <span v-if="store.unconfiguredStations.length > 0" class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-bold border border-indigo-500/40">
-              {{ store.unconfiguredStations.length }} Awaiting Setup
-            </span>
+        <!-- Station Selector Cards Header & Zone Dropdown Menu -->
+        <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-3 shadow-lg flex flex-wrap items-center justify-between gap-3">
+          <div class="flex flex-wrap items-center gap-3">
+            <div class="flex items-center gap-2">
+              <MapPin :size="15" class="text-emerald-400" />
+              <span class="text-xs font-bold text-white uppercase tracking-wider">Zone:</span>
+            </div>
+
+            <!-- Plantation Zone Dropdown Selector -->
+            <div class="relative">
+              <select
+                :value="selectedZone"
+                @change="handleZoneChange(($event.target as HTMLSelectElement).value)"
+                class="bg-slate-950 border border-slate-700 hover:border-slate-600 focus:border-emerald-500 rounded-xl pl-3 pr-8 py-1.5 text-xs font-semibold text-white focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer appearance-none shadow-inner"
+              >
+                <option value="all">All Plantation Zones ({{ store.stations.length }})</option>
+                <option v-for="zone in availableZones" :key="zone" :value="zone">
+                  {{ zone }} ({{ getZoneStationCount(zone) }})
+                </option>
+              </select>
+              <ChevronDown :size="13" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span class="text-[11px] text-slate-400 font-mono">
+                Showing {{ filteredStations.length }} {{ filteredStations.length === 1 ? 'station' : 'stations' }}
+              </span>
+              <span v-if="store.unconfiguredStations.length > 0" class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-bold border border-indigo-500/40">
+                {{ store.unconfiguredStations.length }} New
+              </span>
+            </div>
           </div>
+
           <div class="flex items-center gap-2">
             <button
               @click="handleSimulateNewDiscovery"
-              class="px-2.5 py-1 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition shadow"
+              class="px-2.5 py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1.5 transition shadow"
               title="Simulate a newly deployed IoT bait station transmitting its first LoRa packet"
             >
               <Radio :size="13" class="animate-pulse" />
@@ -328,17 +417,18 @@ onMounted(async () => {
             </button>
             <button
               @click="handleOpenVerify()"
-              class="px-2.5 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition shadow"
+              class="px-2.5 py-1.5 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-semibold flex items-center gap-1.5 transition shadow"
             >
               <ClipboardCheck :size="13" />
-              <span>Log Field Audit / Inspection</span>
+              <span>Log Field Audit</span>
             </button>
           </div>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <!-- Station Cards Grid (Filtered to display one zone at once) -->
+        <div v-if="filteredStations.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <StationCard
-            v-for="st in store.stations"
+            v-for="st in filteredStations"
             :key="st.id"
             :station="st"
             :is-selected="store.selectedStationId === st.id"
@@ -346,6 +436,9 @@ onMounted(async () => {
             @edit="handleConfigureStation"
             @open-verify="handleOpenVerify"
           />
+        </div>
+        <div v-else class="p-8 text-center bg-slate-900/60 rounded-2xl border border-slate-800 text-slate-400 text-xs">
+          No bait stations found in {{ selectedZone }}. Select another zone from the dropdown menu above.
         </div>
       </div>
 
