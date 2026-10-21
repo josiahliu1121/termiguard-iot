@@ -279,7 +279,80 @@ function getStationThreatBadge(station: Station) {
       </div>
     </div>
 
-    <!-- Dedicated GIS Station Search & Multi-Parameter Filter Bar -->
+    <!-- New IoT Station Auto-Discovery Notification Banner (Modeled after Response SOP & Alerts) -->
+    <div
+      v-if="store.unconfiguredStations.length > 0"
+      class="space-y-3"
+    >
+      <div
+        v-for="unconfiguredSt in store.unconfiguredStations"
+        :key="unconfiguredSt.id"
+        class="bg-indigo-950/30 border border-indigo-500/40 rounded-2xl p-4 shadow-xl flex flex-wrap items-center justify-between gap-4 transition-all"
+      >
+        <div class="flex items-start md:items-center gap-3.5">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/40 shadow-inner mt-0.5 md:mt-0">
+            <Radio :size="20" class="animate-pulse" />
+          </div>
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <h4 class="font-bold text-white text-sm">
+                New Station Go-Live Detected &bull; {{ unconfiguredSt.code }}
+              </h4>
+              <span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-bold border border-indigo-500/40 uppercase tracking-wider">
+                Initial Packet Received
+              </span>
+              <!-- Live Continuous Monitoring Status & ITI -->
+              <span
+                class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border font-mono"
+                :class="unconfiguredSt.threatLevel === 'High' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : unconfiguredSt.threatLevel === 'Medium' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'"
+              >
+                Live ITI: {{ unconfiguredSt.threatIndex ?? 0 }}/100 ({{ unconfiguredSt.threatLevel || 'Monitoring' }})
+              </span>
+              <span class="text-xs font-mono text-cyan-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                Moisture: {{ unconfiguredSt.soilMoisture }}%
+              </span>
+              <span class="text-xs font-mono text-emerald-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                Battery: {{ unconfiguredSt.batteryLevel }}%
+              </span>
+            </div>
+            <p class="text-xs text-slate-300 mt-1 leading-relaxed">
+              Station <strong class="text-white">{{ unconfiguredSt.code }}</strong> transmitted its initial packet and joined the network. Telemetry monitoring and rolling Threat Index are already live with an empty profile. Please key in tree tag and plantation zone metadata to complete station assignment.
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button
+            @click="router.push({ path: '/events', query: { station: unconfiguredSt.id } })"
+            class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-xs flex items-center gap-1.5 transition border border-slate-700 shadow"
+            title="Open raw telemetry event records table"
+          >
+            <History :size="14" class="text-slate-400" />
+            <span>Event Log</span>
+          </button>
+
+          <button
+            @click="openEditModal(unconfiguredSt)"
+            class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-2 transition shadow-lg shadow-indigo-950/50"
+          >
+            <Radio :size="14" />
+            <span>Key In Station Profile</span>
+            <ArrowRight :size="14" />
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Plantation Map -->
+    <PlantationMap
+      height-class="h-[500px]"
+      :stations="filteredStations"
+      @open-add-modal="openAddModal"
+      @configure-station="openEditModal"
+      @select-station="st => store.selectStation(st.id)"
+    />
+
+    <!-- Dedicated GIS Station Search & Multi-Parameter Filter Bar (Positioned directly above the Table) -->
     <div class="bg-slate-900/90 p-4 rounded-2xl border border-slate-800 shadow-xl space-y-3">
       <div class="flex flex-wrap items-center justify-between gap-3 pb-2.5 border-b border-slate-800/80">
         <div class="flex items-center gap-2">
@@ -438,79 +511,6 @@ function getStationThreatBadge(station: Station) {
         </div>
       </div>
     </div>
-
-    <!-- New IoT Station Auto-Discovery Notification Banner (Modeled after Response SOP & Alerts) -->
-    <div
-      v-if="store.unconfiguredStations.length > 0"
-      class="space-y-3"
-    >
-      <div
-        v-for="unconfiguredSt in store.unconfiguredStations"
-        :key="unconfiguredSt.id"
-        class="bg-indigo-950/30 border border-indigo-500/40 rounded-2xl p-4 shadow-xl flex flex-wrap items-center justify-between gap-4 transition-all"
-      >
-        <div class="flex items-start md:items-center gap-3.5">
-          <div class="w-10 h-10 rounded-xl bg-indigo-500/20 text-indigo-400 flex items-center justify-center shrink-0 border border-indigo-500/40 shadow-inner mt-0.5 md:mt-0">
-            <Radio :size="20" class="animate-pulse" />
-          </div>
-          <div>
-            <div class="flex flex-wrap items-center gap-2">
-              <h4 class="font-bold text-white text-sm">
-                New Station Go-Live Detected &bull; {{ unconfiguredSt.code }}
-              </h4>
-              <span class="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[10px] font-bold border border-indigo-500/40 uppercase tracking-wider">
-                Initial Packet Received
-              </span>
-              <!-- Live Continuous Monitoring Status & ITI -->
-              <span
-                class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border font-mono"
-                :class="unconfiguredSt.threatLevel === 'High' ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : unconfiguredSt.threatLevel === 'Medium' ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40'"
-              >
-                Live ITI: {{ unconfiguredSt.threatIndex ?? 0 }}/100 ({{ unconfiguredSt.threatLevel || 'Monitoring' }})
-              </span>
-              <span class="text-xs font-mono text-cyan-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                Moisture: {{ unconfiguredSt.soilMoisture }}%
-              </span>
-              <span class="text-xs font-mono text-emerald-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
-                Battery: {{ unconfiguredSt.batteryLevel }}%
-              </span>
-            </div>
-            <p class="text-xs text-slate-300 mt-1 leading-relaxed">
-              Station <strong class="text-white">{{ unconfiguredSt.code }}</strong> transmitted its initial packet and joined the network. Telemetry monitoring and rolling Threat Index are already live with an empty profile. Please key in tree tag and plantation zone metadata to complete station assignment.
-            </p>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2">
-          <button
-            @click="router.push({ path: '/events', query: { station: unconfiguredSt.id } })"
-            class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-semibold text-xs flex items-center gap-1.5 transition border border-slate-700 shadow"
-            title="Open raw telemetry event records table"
-          >
-            <History :size="14" class="text-slate-400" />
-            <span>Event Log</span>
-          </button>
-
-          <button
-            @click="openEditModal(unconfiguredSt)"
-            class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs flex items-center gap-2 transition shadow-lg shadow-indigo-950/50"
-          >
-            <Radio :size="14" />
-            <span>Key In Station Profile</span>
-            <ArrowRight :size="14" />
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Plantation Map -->
-    <PlantationMap
-      height-class="h-[500px]"
-      :stations="filteredStations"
-      @open-add-modal="openAddModal"
-      @configure-station="openEditModal"
-      @select-station="st => store.selectStation(st.id)"
-    />
 
     <!-- Stations Detailed Table -->
     <div class="bg-slate-900/90 rounded-2xl border border-slate-800 p-5 shadow-xl">
