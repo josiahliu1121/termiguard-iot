@@ -16,7 +16,6 @@ DROP TABLE IF EXISTS verification_cases;
 DROP TABLE IF EXISTS events;
 DROP TABLE IF EXISTS stations;
 DROP TABLE IF EXISTS gateway_info;
-DROP TABLE IF EXISTS forecast_model_metrics;
 
 -- ============================================================================
 -- 1. TABLE: stations (Station Information Table)
@@ -201,22 +200,6 @@ CREATE TABLE gateway_info (
 ) ENGINE=InnoDB;
 
 -- ============================================================================
--- 6. TABLE: forecast_model_metrics (Model Accuracy & Operational Metrics)
--- ============================================================================
-CREATE TABLE forecast_model_metrics (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  internal_forecasting_lead_time_days DECIMAL(5, 2) NOT NULL DEFAULT 14.50,
-  detection_lead_time_days DECIMAL(5, 2) NOT NULL DEFAULT 42.00,
-  false_alarm_rate_percent DECIMAL(5, 2) NOT NULL DEFAULT 8.40,
-  relay_link_availability_percent DECIMAL(5, 2) NOT NULL DEFAULT 98.60,
-  master_uplink_availability_percent DECIMAL(5, 2) NOT NULL DEFAULT 99.10,
-  classification_accuracy_percent DECIMAL(5, 2) NOT NULL DEFAULT 94.20,
-  average_daily_sleep_ratio_percent DECIMAL(5, 2) NOT NULL DEFAULT 99.70,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
-
-
--- ============================================================================
 -- SEED DATA INSERTION
 -- Populates the exact baseline state matching the frontend application
 -- ============================================================================
@@ -225,18 +208,7 @@ CREATE TABLE forecast_model_metrics (
 INSERT INTO gateway_info (id, name, latitude, longitude, backhaul, signal_dbm, ip_address, is_online)
 VALUES ('GW-RMB-5G-01', 'Rembau Gateway Tower (SX1302 + 5G)', 2.5898500, 102.0918000, '5G', -68, '10.244.18.2', TRUE);
 
--- Seed 2: Model Performance Metrics
-INSERT INTO forecast_model_metrics (
-  internal_forecasting_lead_time_days,
-  detection_lead_time_days,
-  false_alarm_rate_percent,
-  relay_link_availability_percent,
-  master_uplink_availability_percent,
-  classification_accuracy_percent,
-  average_daily_sleep_ratio_percent
-) VALUES (14.50, 42.00, 8.40, 98.60, 99.10, 94.20, 99.70);
-
--- Seed 3: Five Initial Plantation Bait Stations
+-- Seed 2: Five Initial Plantation Bait Stations
 INSERT INTO stations (
   id, code, name, description, type, latitude, longitude,
   plantation_zone, tree_tag, is_profile_complete, moisture_threshold,

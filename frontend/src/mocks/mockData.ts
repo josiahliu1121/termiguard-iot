@@ -289,7 +289,8 @@ export const INITIAL_ALERTS: AlertEvent[] = [
   }
 ]
 
-export const SYSTEM_METRICS: ForecastModelMetrics = {
+// Frontend Static Model Metrics (Hardcoded directly in frontend, no backend API needed)
+export const FORECAST_MODEL_METRICS: ForecastModelMetrics = {
   internalForecastingLeadTimeDays: 14.5,
   detectionLeadTimeDays: 42.0,
   falseAlarmRatePercent: 8.4,
@@ -298,6 +299,8 @@ export const SYSTEM_METRICS: ForecastModelMetrics = {
   classificationAccuracyPercent: 94.2,
   averageDailySleepRatioPercent: 99.7
 }
+
+export const SYSTEM_METRICS = FORECAST_MODEL_METRICS
 
 export const INITIAL_SYSTEM_STATUS: SystemStatus = {
   gatewayOnline: true,

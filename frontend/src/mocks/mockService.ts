@@ -3,11 +3,10 @@ import {
   createInitialEventsTable,
   composeStation,
   INITIAL_ALERTS,
-  SYSTEM_METRICS,
   INITIAL_SYSTEM_STATUS,
   INITIAL_CASES
 } from './mockData'
-import type { StationInfo, StationEvent, Station, AlertEvent, ForecastModelMetrics, SystemStatus, PredictLevel, VerificationCase, CaseStatus } from '@/types'
+import type { StationInfo, StationEvent, Station, AlertEvent, SystemStatus, PredictLevel, VerificationCase, CaseStatus } from '@/types'
 
 // ==========================================
 // In-Memory Database Storage (3 Tables)
@@ -483,12 +482,6 @@ export const mockService = {
     const missRate = (tp + fn) > 0 ? Number(((fn / (tp + fn)) * 100).toFixed(1)) : 0
 
     return { tp, fp, fn, tn, total, precision, recall, accuracy, falseAlarmRate, missRate }
-  },
-
-  // System Metrics
-  async getSystemMetrics(): Promise<ForecastModelMetrics> {
-    await delay(30)
-    return { ...SYSTEM_METRICS }
   },
 
   async getSystemStatus(): Promise<SystemStatus> {

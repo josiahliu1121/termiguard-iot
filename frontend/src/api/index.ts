@@ -1,6 +1,6 @@
 import { mockService } from '@/mocks/mockService'
 import { mockWebSocket } from '@/mocks/mockWebSocket'
-import type { StationInfo, StationEvent, Station, AlertEvent, ForecastModelMetrics, SystemStatus, VerificationCase, CaseStatus } from '@/types'
+import type { StationInfo, StationEvent, Station, AlertEvent, SystemStatus, VerificationCase, CaseStatus } from '@/types'
 
 const USE_MOCK = import.meta.env.VITE_USE_MOCK !== 'false'
 const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8080/api/v1'
@@ -197,12 +197,6 @@ export const api = {
 
   // System & Research Metrics
   system: {
-    async getMetrics(): Promise<ForecastModelMetrics> {
-      if (USE_MOCK) return mockService.getSystemMetrics()
-      const res = await fetch(`${API_BASE}/analytics/metrics`)
-      return res.json()
-    },
-
     async getStatus(): Promise<SystemStatus> {
       if (USE_MOCK) return mockService.getSystemStatus()
       const res = await fetch(`${API_BASE}/system/status`)

@@ -1,13 +1,14 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { api } from '@/api'
+import { FORECAST_MODEL_METRICS } from '@/mocks/mockData'
 import type { Station, StationInfo, StationEvent, AlertEvent, ForecastModelMetrics, SystemStatus, VerificationCase, CaseStatus } from '@/types'
 
 export const usePlantationStore = defineStore('plantation', () => {
   const stations = ref<Station[]>([])
   const alerts = ref<AlertEvent[]>([])
   const cases = ref<VerificationCase[]>([])
-  const metrics = ref<ForecastModelMetrics | null>(null)
+  const metrics = ref<ForecastModelMetrics>(FORECAST_MODEL_METRICS)
   const systemStatus = ref<SystemStatus | null>(null)
   const selectedStationId = ref<string>('ST-02')
   const liveEvents = ref<StationEvent[]>([])
@@ -89,10 +90,9 @@ export const usePlantationStore = defineStore('plantation', () => {
   async function init() {
     isLoading.value = true
     try {
-      const [fetchedStations, fetchedAlerts, fetchedMetrics, fetchedStatus, fetchedEvents, fetchedCases] = await Promise.all([
+      const [fetchedStations, fetchedAlerts, fetchedStatus, fetchedEvents, fetchedCases] = await Promise.all([
         api.stations.getAll(),
         api.alerts.getAll(),
-        api.system.getMetrics(),
         api.system.getStatus(),
         api.events.getAll(),
         api.cases.getAll()
@@ -100,7 +100,6 @@ export const usePlantationStore = defineStore('plantation', () => {
 
       stations.value = fetchedStations
       alerts.value = fetchedAlerts
-      metrics.value = fetchedMetrics
       systemStatus.value = fetchedStatus
       allEvents.value = fetchedEvents
       liveEvents.value = fetchedEvents.slice(0, 5)
