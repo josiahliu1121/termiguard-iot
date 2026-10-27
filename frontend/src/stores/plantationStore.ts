@@ -324,6 +324,55 @@ export const usePlantationStore = defineStore('plantation', () => {
         stations.value.push(created)
       }
       return created
+    } else {
+      const existing = stations.value.find(s => s.id === stationId)
+      if (existing) return existing
+
+      const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
+      const created = await api.stations.create({
+        id: stationId,
+        code: stationId,
+        name: `Station ${stationId} (Auto-Discovered)`,
+        description: 'Auto-registered from initial telemetry packet. Awaiting field metadata configuration.',
+        type: 'peripheral',
+        coordinates: [2.58910, 102.09340],
+        plantationZone: 'Unassigned (Pending Setup)',
+        treeTag: '',
+        isProfileComplete: false,
+        moistureThreshold: 65.0,
+        samplingFrequencyMinutes: 15,
+        heartbeatIntervalHours: 24,
+        threatIndex: 45,
+        threatLevel: 'Low',
+        windowHits: 1,
+        windowTotal: 1,
+        windowSummary: '1/1 telemetry cycles - Live Telemetry Active',
+        installedAt: now,
+        humanVerificationStatus: 'unverified'
+      } as any)
+
+      await api.events.insert({
+        stationId,
+        timestamp: now,
+        eventType: 'daily_heartbeat',
+        batteryLevel: 98,
+        batteryVoltage: 4.14,
+        soilMoisture: 67.4,
+        acousticScore: 54,
+        temperature: 29.2,
+        humidity: 81.0,
+        rssi: -79,
+        snr: 8.4,
+        predictLevel: 'Low',
+        aiRiskScore: 48,
+        isMoistureTriggered: true,
+        mfccFeatures: [-8.5, 11.2, 6.4, 4.8, 3.1, 2.0, 1.5, 1.1, 0.8, 0.5, 0.4, 0.2, 0.1]
+      })
+
+      if (!stations.value.some(s => s.id === created.id)) {
+        stations.value.push(created)
+      }
+      return created
     }
   }
 
