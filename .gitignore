@@ -22,7 +22,15 @@ lerna-debug.log*
 .env.*.local
 *.local
 
-# Python / Backend
+# Java / Maven
+backend/target/
+target/
+*.class
+*.jar
+*.war
+.classpath
+.project
+.settings/
 __pycache__/
 *.py[cod]
 *$py.class
