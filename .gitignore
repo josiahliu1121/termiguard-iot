@@ -39,6 +39,11 @@ venv/
 ENV/
 *.sqlite3
 
+# Machine Learning & Audio Datasets
+training_material/
+*.wav
+*.mp3
+
 # Editor & OS files
 .vscode/*
 !.vscode/extensions.json

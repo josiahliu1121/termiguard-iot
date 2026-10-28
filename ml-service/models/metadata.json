@@ -1,0 +1,79 @@
+{
+  "model_file": "termite_classifier_v1.joblib",
+  "trained_at": "2026-10-28 17:34:22",
+  "sample_count": 4438,
+  "accuracy": 0.9763513513513513,
+  "classification_report": {
+    "negative": {
+      "precision": 0.9789915966386554,
+      "recall": 0.9395161290322581,
+      "f1-score": 0.9588477366255144,
+      "support": 248.0
+    },
+    "suspected": {
+      "precision": 0.9433962264150944,
+      "recall": 0.9765625,
+      "f1-score": 0.9596928982725528,
+      "support": 256.0
+    },
+    "positive": {
+      "precision": 0.9974025974025974,
+      "recall": 1.0,
+      "f1-score": 0.9986996098829649,
+      "support": 384.0
+    },
+    "accuracy": 0.9763513513513513,
+    "macro avg": {
+      "precision": 0.973263473485449,
+      "recall": 0.9720262096774194,
+      "f1-score": 0.9724134149270106,
+      "support": 888.0
+    },
+    "weighted avg": {
+      "precision": 0.9766913821297839,
+      "recall": 0.9763513513513513,
+      "f1-score": 0.9763246293197744,
+      "support": 888.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      233,
+      15,
+      0
+    ],
+    [
+      5,
+      250,
+      1
+    ],
+    [
+      0,
+      0,
+      384
+    ]
+  ],
+  "feature_names": [
+    "mfcc_0",
+    "mfcc_1",
+    "mfcc_2",
+    "mfcc_3",
+    "mfcc_4",
+    "mfcc_5",
+    "mfcc_6",
+    "mfcc_7",
+    "mfcc_8",
+    "mfcc_9",
+    "mfcc_10",
+    "mfcc_11",
+    "mfcc_12",
+    "acoustic_score",
+    "spectral_centroid",
+    "zero_crossing_rate"
+  ],
+  "classes": [
+    "negative",
+    "suspected",
+    "positive"
+  ]
+}
