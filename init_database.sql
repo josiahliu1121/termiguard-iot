@@ -306,48 +306,54 @@ INSERT INTO alerts (
 );
 
 -- Seed 6: Telemetry Event Records
--- 1. Daily keepalives for ST-00, ST-01, ST-03
+-- Uses dynamic relative timestamps (DATE_SUB) so records are always fresh within the 7-day retrospective window
+-- All initial events start UNVALIDATED (validation_outcome = NULL) awaiting human ground-truth audits
 INSERT INTO events (
   id, station_id, timestamp, event_type, battery_level, battery_voltage,
   soil_moisture, acoustic_score, temperature, humidity, rssi, snr,
-  predict_level, ai_risk_score, is_moisture_triggered, mfcc_features
+  predict_level, ai_risk_score, is_moisture_triggered, mfcc_features,
+  validation_outcome, validated_at, validated_by, validation_notes
 ) VALUES
-(
-  'evt-st00-hb-01', 'ST-00', '2026-10-21 06:00:00', 'daily_heartbeat',
-  98, 4.15, 56.20, NULL, 29.5, 78.0, -72, 9.4, 'Safe', 10, FALSE, NULL
-),
-(
-  'evt-st01-hb-01', 'ST-01', '2026-10-21 06:15:00', 'daily_heartbeat',
-  92, 4.02, 58.10, NULL, 29.0, 79.5, -84, 7.8, 'Safe', 12, FALSE, NULL
-),
-(
-  'evt-st03-hb-01', 'ST-03', '2026-10-21 06:30:00', 'daily_heartbeat',
-  95, 4.08, 53.40, NULL, 29.2, 77.0, -81, 8.5, 'Safe', 8, FALSE, NULL
-),
--- 2. Initial packet for newly discovered ST-04
-(
-  'evt-st04-first-0', 'ST-04', '2026-10-21 20:30:00', 'daily_heartbeat',
-  98, 4.14, 67.40, 54, 29.2, 81.0, -79, 8.4, 'Low', 48, TRUE,
-  '[-8.5, 11.2, 6.4, 4.8, 3.1, 2.0, 1.5, 1.1, 0.8, 0.5, 0.4, 0.2, 0.1]'
-),
--- 3. High-activity 15-minute triggered acoustic packets for ST-02 (Hotspot)
-(
-  'evt-st02-trig-03', 'ST-02', '2026-10-21 18:00:00', '15min_triggered_event',
-  88, 3.92, 69.10, 72, 29.8, 83.0, -88, 6.4, 'Medium', 75, TRUE,
-  '[-9.5, 14.2, 8.0, 6.5, 4.2, 3.0, 2.3, 1.7, 1.1, 0.9, 0.7, 0.4, 0.3]'
-),
-(
-  'evt-st02-trig-02', 'ST-02', '2026-10-21 18:15:00', '15min_triggered_event',
-  87, 3.90, 69.40, 78, 29.6, 83.5, -88, 6.1, 'High', 82, TRUE,
-  '[-9.8, 14.5, 8.2, 6.7, 4.3, 3.1, 2.4, 1.8, 1.2, 0.9, 0.8, 0.4, 0.3]'
-),
-(
-  'evt-st02-trig-01', 'ST-02', '2026-10-21 18:30:00', '15min_triggered_event',
-  87, 3.89, 69.80, 84, 29.4, 84.0, -89, 5.9, 'High', 88, TRUE,
-  '[-10.1, 14.9, 8.5, 6.9, 4.5, 3.3, 2.5, 1.9, 1.3, 1.0, 0.8, 0.5, 0.3]'
-),
-(
-  'evt-st02-trig-00', 'ST-02', '2026-10-21 18:45:00', '15min_triggered_event',
-  86, 3.88, 69.50, 82, 29.2, 84.5, -88, 6.2, 'High', 86, TRUE,
-  '[-9.9, 14.7, 8.3, 6.8, 4.4, 3.2, 2.4, 1.8, 1.2, 0.9, 0.8, 0.4, 0.3]'
-);
+-- 1. ST-00 (Central Hub - Safe baseline keepalives)
+('evt-st00-day-6', 'ST-00', DATE_SUB(NOW(), INTERVAL 6 DAY), 'daily_heartbeat', 98, 4.15, 55.8, NULL, 29.2, 77.5, -72, 9.4, 'Safe', 10, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st00-day-5', 'ST-00', DATE_SUB(NOW(), INTERVAL 5 DAY), 'daily_heartbeat', 98, 4.14, 56.1, NULL, 29.5, 78.0, -72, 9.3, 'Safe', 10, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st00-day-4', 'ST-00', DATE_SUB(NOW(), INTERVAL 4 DAY), 'daily_heartbeat', 97, 4.13, 56.4, NULL, 29.0, 78.2, -73, 9.2, 'Safe', 10, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st00-day-3', 'ST-00', DATE_SUB(NOW(), INTERVAL 3 DAY), 'daily_heartbeat', 97, 4.12, 56.0, NULL, 29.6, 77.8, -72, 9.5, 'Safe', 10, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st00-day-2', 'ST-00', DATE_SUB(NOW(), INTERVAL 2 DAY), 'daily_heartbeat', 96, 4.11, 56.5, NULL, 29.4, 78.5, -72, 9.3, 'Safe', 10, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st00-day-1', 'ST-00', DATE_SUB(NOW(), INTERVAL 1 DAY), 'daily_heartbeat', 96, 4.10, 56.2, NULL, 29.3, 78.0, -71, 9.6, 'Safe', 10, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st00-today', 'ST-00', DATE_SUB(NOW(), INTERVAL 2 HOUR), 'daily_heartbeat', 95, 4.09, 56.3, NULL, 29.5, 77.9, -72, 9.4, 'Safe', 10, FALSE, NULL, NULL, NULL, NULL, NULL),
+
+-- 2. ST-01 (North Perimeter - Safe baseline keepalives)
+('evt-st01-day-6', 'ST-01', DATE_SUB(NOW(), INTERVAL 6 DAY), 'daily_heartbeat', 93, 4.04, 57.8, NULL, 28.9, 79.0, -84, 7.8, 'Safe', 12, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st01-day-5', 'ST-01', DATE_SUB(NOW(), INTERVAL 5 DAY), 'daily_heartbeat', 93, 4.03, 58.2, NULL, 29.1, 79.4, -84, 7.7, 'Safe', 12, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st01-day-4', 'ST-01', DATE_SUB(NOW(), INTERVAL 4 DAY), 'daily_heartbeat', 92, 4.02, 58.0, NULL, 29.0, 79.2, -85, 7.9, 'Safe', 12, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st01-day-3', 'ST-01', DATE_SUB(NOW(), INTERVAL 3 DAY), 'daily_heartbeat', 92, 4.01, 58.5, NULL, 29.3, 79.8, -84, 7.6, 'Safe', 12, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st01-day-2', 'ST-01', DATE_SUB(NOW(), INTERVAL 2 DAY), 'daily_heartbeat', 91, 4.00, 58.1, NULL, 29.0, 79.5, -83, 7.8, 'Safe', 12, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st01-day-1', 'ST-01', DATE_SUB(NOW(), INTERVAL 1 DAY), 'daily_heartbeat', 91, 3.99, 58.4, NULL, 28.8, 80.0, -84, 7.7, 'Safe', 12, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st01-today', 'ST-01', DATE_SUB(NOW(), INTERVAL 2 HOUR), 'daily_heartbeat', 90, 3.98, 58.1, NULL, 29.0, 79.5, -84, 7.8, 'Safe', 12, FALSE, NULL, NULL, NULL, NULL, NULL),
+
+-- 3. ST-03 (South-West Boundary - Safe baseline keepalives)
+('evt-st03-day-6', 'ST-03', DATE_SUB(NOW(), INTERVAL 6 DAY), 'daily_heartbeat', 96, 4.10, 53.0, NULL, 29.0, 76.8, -81, 8.5, 'Safe', 8, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st03-day-5', 'ST-03', DATE_SUB(NOW(), INTERVAL 5 DAY), 'daily_heartbeat', 95, 4.09, 53.2, NULL, 29.2, 77.0, -81, 8.4, 'Safe', 8, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st03-day-4', 'ST-03', DATE_SUB(NOW(), INTERVAL 4 DAY), 'daily_heartbeat', 95, 4.08, 53.5, NULL, 29.1, 77.2, -82, 8.6, 'Safe', 8, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st03-day-3', 'ST-03', DATE_SUB(NOW(), INTERVAL 3 DAY), 'daily_heartbeat', 94, 4.07, 53.1, NULL, 29.4, 76.9, -81, 8.3, 'Safe', 8, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st03-day-2', 'ST-03', DATE_SUB(NOW(), INTERVAL 2 DAY), 'daily_heartbeat', 94, 4.06, 53.6, NULL, 29.0, 77.5, -80, 8.5, 'Safe', 8, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st03-day-1', 'ST-03', DATE_SUB(NOW(), INTERVAL 1 DAY), 'daily_heartbeat', 93, 4.05, 53.3, NULL, 29.3, 77.1, -81, 8.6, 'Safe', 8, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st03-today', 'ST-03', DATE_SUB(NOW(), INTERVAL 2 HOUR), 'daily_heartbeat', 93, 4.04, 53.4, NULL, 29.2, 77.0, -81, 8.5, 'Safe', 8, FALSE, NULL, NULL, NULL, NULL, NULL),
+
+-- 4. ST-04 (Auto-Discovered Station - Recent Telemetry stream)
+('evt-st04-pkt-2', 'ST-04', DATE_SUB(NOW(), INTERVAL 45 MINUTE), 'daily_heartbeat', 98, 4.14, 67.2, 52, 29.1, 80.8, -79, 8.3, 'Low', 45, TRUE, '[-8.5, 11.2, 6.4, 4.8, 3.1, 2.0, 1.5, 1.1, 0.8, 0.5, 0.4, 0.2, 0.1]', NULL, NULL, NULL, NULL),
+('evt-st04-pkt-1', 'ST-04', DATE_SUB(NOW(), INTERVAL 30 MINUTE), 'daily_heartbeat', 98, 4.14, 67.3, 53, 29.2, 81.0, -79, 8.4, 'Low', 47, TRUE, '[-8.5, 11.2, 6.4, 4.8, 3.1, 2.0, 1.5, 1.1, 0.8, 0.5, 0.4, 0.2, 0.1]', NULL, NULL, NULL, NULL),
+('evt-st04-first-0', 'ST-04', DATE_SUB(NOW(), INTERVAL 15 MINUTE), 'daily_heartbeat', 98, 4.14, 67.4, 54, 29.2, 81.0, -79, 8.4, 'Low', 48, TRUE, '[-8.5, 11.2, 6.4, 4.8, 3.1, 2.0, 1.5, 1.1, 0.8, 0.5, 0.4, 0.2, 0.1]', NULL, NULL, NULL, NULL),
+
+-- 5. ST-02 (East Root-Zone Hotspot - Active subterranean foraging acoustic bursts)
+('evt-st02-day-4', 'ST-02', DATE_SUB(NOW(), INTERVAL 4 DAY), 'daily_heartbeat', 91, 3.98, 59.2, NULL, 29.4, 80.0, -87, 6.8, 'Safe', 14, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st02-day-3', 'ST-02', DATE_SUB(NOW(), INTERVAL 3 DAY), 'daily_heartbeat', 90, 3.96, 61.5, NULL, 29.6, 81.0, -87, 6.7, 'Safe', 18, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st02-day-2', 'ST-02', DATE_SUB(NOW(), INTERVAL 2 DAY), 'daily_heartbeat', 89, 3.95, 64.8, NULL, 29.5, 82.0, -88, 6.5, 'Low', 28, FALSE, NULL, NULL, NULL, NULL, NULL),
+('evt-st02-day-1', 'ST-02', DATE_SUB(NOW(), INTERVAL 1 DAY), 'daily_heartbeat', 88, 3.93, 67.2, 58, 29.7, 82.5, -88, 6.5, 'Medium', 65, TRUE, '[-9.2, 13.8, 7.8, 6.2, 4.0, 2.8, 2.1, 1.5, 1.0, 0.8, 0.6, 0.3, 0.2]', NULL, NULL, NULL, NULL),
+('evt-st02-trig-05', 'ST-02', DATE_SUB(NOW(), INTERVAL 90 MINUTE), '15min_triggered_event', 88, 3.92, 69.1, 68, 29.8, 83.0, -88, 6.4, 'Medium', 72, TRUE, '[-9.5, 14.2, 8.0, 6.5, 4.2, 3.0, 2.3, 1.7, 1.1, 0.9, 0.7, 0.4, 0.3]', NULL, NULL, NULL, NULL),
+('evt-st02-trig-04', 'ST-02', DATE_SUB(NOW(), INTERVAL 75 MINUTE), '15min_triggered_event', 87, 3.91, 69.2, 74, 29.7, 83.2, -88, 6.3, 'Medium', 76, TRUE, '[-9.6, 14.3, 8.1, 6.6, 4.2, 3.0, 2.3, 1.7, 1.1, 0.9, 0.7, 0.4, 0.3]', NULL, NULL, NULL, NULL),
+('evt-st02-trig-03', 'ST-02', DATE_SUB(NOW(), INTERVAL 60 MINUTE), '15min_triggered_event', 87, 3.90, 69.4, 78, 29.6, 83.5, -88, 6.1, 'High', 82, TRUE, '[-9.8, 14.5, 8.2, 6.7, 4.3, 3.1, 2.4, 1.8, 1.2, 0.9, 0.8, 0.4, 0.3]', NULL, NULL, NULL, NULL),
+('evt-st02-trig-02', 'ST-02', DATE_SUB(NOW(), INTERVAL 45 MINUTE), '15min_triggered_event', 87, 3.89, 69.6, 80, 29.5, 83.8, -89, 6.0, 'High', 84, TRUE, '[-9.9, 14.6, 8.3, 6.8, 4.4, 3.2, 2.4, 1.8, 1.2, 0.9, 0.8, 0.4, 0.3]', NULL, NULL, NULL, NULL),
+('evt-st02-trig-01', 'ST-02', DATE_SUB(NOW(), INTERVAL 30 MINUTE), '15min_triggered_event', 86, 3.89, 69.8, 84, 29.4, 84.0, -89, 5.9, 'High', 88, TRUE, '[-10.1, 14.9, 8.5, 6.9, 4.5, 3.3, 2.5, 1.9, 1.3, 1.0, 0.8, 0.5, 0.3]', NULL, NULL, NULL, NULL),
+('evt-st02-trig-00', 'ST-02', DATE_SUB(NOW(), INTERVAL 15 MINUTE), '15min_triggered_event', 86, 3.88, 69.5, 82, 29.2, 84.5, -88, 6.2, 'High', 86, TRUE, '[-9.9, 14.7, 8.3, 6.8, 4.4, 3.2, 2.4, 1.8, 1.2, 0.9, 0.8, 0.4, 0.3]', NULL, NULL, NULL, NULL);

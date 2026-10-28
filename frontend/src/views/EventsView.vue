@@ -530,6 +530,13 @@ watch(() => route.query.station, (newSt) => {
             </div>
             <span v-if="evt.validatedBy" class="text-[9px] text-slate-400">by {{ evt.validatedBy.split(' ')[0] }}</span>
           </div>
+          <div v-else class="mb-3 px-2 py-1 rounded-lg border border-slate-800/80 bg-slate-950/50 flex items-center justify-between text-[10px] text-slate-500">
+            <span class="flex items-center gap-1.5 font-mono text-[9px] text-slate-400">
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-600"></span>
+              <span>Ground Truth: Pending Human Audit</span>
+            </span>
+            <span class="text-[9px] italic text-slate-500 font-mono">Unlabeled</span>
+          </div>
 
           <!-- Main Sensor Reading Gauges -->
           <div class="grid grid-cols-2 gap-2 mb-3">

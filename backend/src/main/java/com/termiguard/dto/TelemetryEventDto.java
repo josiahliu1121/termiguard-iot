@@ -1,6 +1,7 @@
 package com.termiguard.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
@@ -12,7 +13,6 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class TelemetryEventDto {
     private String id;
     private String stationId;
@@ -30,8 +30,20 @@ public class TelemetryEventDto {
     private Integer aiRiskScore;
     private Boolean isMoistureTriggered;
     private List<Double> mfccFeatures;
+
+    @JsonProperty("validationOutcome")
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private String validationOutcome;
+
+    @JsonProperty("validatedAt")
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private String validatedAt;
+
+    @JsonProperty("validatedBy")
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private String validatedBy;
+
+    @JsonProperty("validationNotes")
+    @JsonInclude(JsonInclude.Include.ALWAYS)
     private String validationNotes;
 }

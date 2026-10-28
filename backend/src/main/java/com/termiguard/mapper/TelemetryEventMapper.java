@@ -48,10 +48,17 @@ public interface TelemetryEventMapper {
             "WHERE station_id = #{stationId} " +
             "  AND timestamp >= #{cutoffTime} " +
             "  AND timestamp <= #{nowTime} " +
+            "  AND (validation_outcome IS NULL OR validation_outcome = '') " +
             "ORDER BY timestamp ASC")
     List<TelemetryEventEntity> selectEventsForValidation(@Param("stationId") String stationId,
                                                          @Param("cutoffTime") String cutoffTime,
                                                          @Param("nowTime") String nowTime);
+
+    @Select("SELECT * FROM events " +
+            "WHERE station_id = #{stationId} " +
+            "  AND (validation_outcome IS NULL OR validation_outcome = '') " +
+            "ORDER BY timestamp ASC")
+    List<TelemetryEventEntity> selectUnvalidatedEventsByStationId(@Param("stationId") String stationId);
 
     @Select("SELECT " +
             "SUM(CASE WHEN validation_outcome = 'TP' THEN 1 ELSE 0 END) as tp, " +
