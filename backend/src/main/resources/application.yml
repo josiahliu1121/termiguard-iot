@@ -31,3 +31,9 @@ logging:
   level:
     com.termiguard: DEBUG
     org.springframework.web: INFO
+
+termiguard:
+  ml-service:
+    url: http://localhost:5000
+    connect-timeout-ms: 1200
+    read-timeout-ms: 2000

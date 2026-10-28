@@ -2,8 +2,11 @@ package com.termiguard.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.termiguard.dto.MlPredictionResult;
 import com.termiguard.dto.StationCompositeDto;
 import com.termiguard.dto.TelemetryEventDto;
+import com.termiguard.dto.UplinkTelemetryRequest;
+import com.termiguard.dto.UplinkTelemetryResponse;
 import com.termiguard.entity.AlertEntity;
 import com.termiguard.entity.StationEntity;
 import com.termiguard.entity.TelemetryEventEntity;
@@ -12,6 +15,7 @@ import com.termiguard.mapper.StationMapper;
 import com.termiguard.mapper.TelemetryEventMapper;
 import com.termiguard.service.EventService;
 import com.termiguard.service.StationService;
+import com.termiguard.service.client.MlInferenceClient;
 import com.termiguard.websocket.TelemetryWebSocketHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
@@ -36,19 +40,22 @@ public class EventServiceImpl implements EventService {
     private final StationService stationService;
     private final TelemetryWebSocketHandler webSocketHandler;
     private final ObjectMapper objectMapper;
+    private final MlInferenceClient mlInferenceClient;
 
     public EventServiceImpl(TelemetryEventMapper eventMapper,
                             StationMapper stationMapper,
                             AlertMapper alertMapper,
                             @Lazy StationService stationService,
                             TelemetryWebSocketHandler webSocketHandler,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            MlInferenceClient mlInferenceClient) {
         this.eventMapper = eventMapper;
         this.stationMapper = stationMapper;
         this.alertMapper = alertMapper;
         this.stationService = stationService;
         this.webSocketHandler = webSocketHandler;
         this.objectMapper = objectMapper;
+        this.mlInferenceClient = mlInferenceClient;
     }
 
     @Override
@@ -163,6 +170,121 @@ public class EventServiceImpl implements EventService {
         evaluateTemporalPersistence(entity.getStationId());
 
         return dto;
+    }
+
+    @Override
+    @Transactional
+    public UplinkTelemetryResponse processUplink(UplinkTelemetryRequest request) {
+        if (request == null || request.getStationId() == null || request.getStationId().trim().isEmpty()) {
+            throw new IllegalArgumentException("Station ID is required for telemetry uplink");
+        }
+
+        String stationId = request.getStationId().trim();
+        String nowStr = LocalDateTime.now().format(DATE_FORMATTER);
+        String timestamp = (request.getTimestamp() != null && !request.getTimestamp().trim().isEmpty())
+                ? request.getTimestamp().trim()
+                : nowStr;
+
+        // Auto-Discovery: If station doesn't exist, auto-register as an unconfigured station
+        StationEntity station = stationMapper.selectById(stationId);
+        if (station == null) {
+            station = StationEntity.builder()
+                    .id(stationId)
+                    .code(stationId)
+                    .name("Station " + stationId + " (Auto-Discovered)")
+                    .description("Auto-registered from 4G telemetry uplink. Awaiting field metadata configuration.")
+                    .type("peripheral")
+                    .latitude(BigDecimal.valueOf(2.5898))
+                    .longitude(BigDecimal.valueOf(102.0931))
+                    .plantationZone("Unassigned (Pending Setup)")
+                    .treeTag("")
+                    .isProfileComplete(false)
+                    .moistureThreshold(BigDecimal.valueOf(65.00))
+                    .samplingFrequencyMinutes(15)
+                    .heartbeatIntervalHours(24)
+                    .isSolarPowered(false)
+                    .installedAt(nowStr)
+                    .threatIndex(10)
+                    .threatLevel("Safe")
+                    .windowHits(1)
+                    .windowTotal(1)
+                    .windowSummary("1/1 telemetry cycles - Live Telemetry Active")
+                    .lastEvaluatedAt(nowStr)
+                    .humanVerificationStatus("unverified")
+                    .build();
+            stationMapper.insert(station);
+
+            StationCompositeDto composedAuto = stationService.composeStation(station, null);
+            Map<String, Object> autoWs = new HashMap<>();
+            autoWs.put("type", "station_updated");
+            autoWs.put("station", composedAuto);
+            webSocketHandler.broadcast(autoWs);
+        }
+
+        // Run ML inference or fallback heuristic
+        MlPredictionResult mlResult = mlInferenceClient.predict(
+                stationId,
+                request.getSoilMoisture(),
+                request.getTemperature(),
+                request.getHumidity(),
+                request.getAcousticScore(),
+                request.getMfccFeatures()
+        );
+
+        String mfccJson = null;
+        if (request.getMfccFeatures() != null && !request.getMfccFeatures().isEmpty()) {
+            try {
+                mfccJson = objectMapper.writeValueAsString(request.getMfccFeatures());
+            } catch (Exception e) {
+                log.warn("Failed to serialize MFCC features to JSON: {}", e.getMessage());
+            }
+        }
+
+        String eventId = "evt-" + System.currentTimeMillis() + "-" + (int)(Math.random() * 1000);
+        TelemetryEventEntity eventEntity = TelemetryEventEntity.builder()
+                .id(eventId)
+                .stationId(stationId)
+                .timestamp(timestamp)
+                .eventType(request.getEventType() != null ? request.getEventType() : (request.getAcousticScore() != null ? "15min_triggered_event" : "daily_heartbeat"))
+                .batteryLevel(request.getBatteryLevel() != null ? request.getBatteryLevel() : 95)
+                .batteryVoltage(request.getBatteryVoltage() != null ? request.getBatteryVoltage() : BigDecimal.valueOf(3.95))
+                .soilMoisture(request.getSoilMoisture() != null ? request.getSoilMoisture() : BigDecimal.valueOf(50.0))
+                .acousticScore(request.getAcousticScore())
+                .temperature(request.getTemperature() != null ? request.getTemperature() : BigDecimal.valueOf(28.5))
+                .humidity(request.getHumidity() != null ? request.getHumidity() : BigDecimal.valueOf(75.0))
+                .rssi(request.getRssi() != null ? request.getRssi() : -80)
+                .snr(request.getSnr() != null ? request.getSnr() : BigDecimal.valueOf(6.0))
+                .predictLevel(mlResult.getPredictLevel())
+                .aiRiskScore(mlResult.getAiRiskScore())
+                .isMoistureTriggered(request.getIsMoistureTriggered() != null ? request.getIsMoistureTriggered() : (request.getAcousticScore() != null))
+                .mfccFeatures(mfccJson)
+                .build();
+
+        eventMapper.insert(eventEntity);
+        TelemetryEventDto dto = entityToDto(eventEntity);
+
+        // Broadcast event_inserted to WebSocket frontend
+        Map<String, Object> wsPayload = new HashMap<>();
+        wsPayload.put("type", "event_inserted");
+        wsPayload.put("event", dto);
+        webSocketHandler.broadcast(wsPayload);
+
+        // Evaluate temporal persistence & update station threat metrics
+        evaluateTemporalPersistence(stationId);
+
+        // Build acknowledgment response for ESP32 with sync parameters
+        return UplinkTelemetryResponse.builder()
+                .status("SUCCESS")
+                .message("Telemetry packet accepted and processed")
+                .eventId(eventId)
+                .stationId(stationId)
+                .serverTime(nowStr)
+                .config(UplinkTelemetryResponse.StationConfigSync.builder()
+                        .moistureThreshold(station.getMoistureThreshold())
+                        .samplingFrequencyMinutes(station.getSamplingFrequencyMinutes())
+                        .heartbeatIntervalHours(station.getHeartbeatIntervalHours())
+                        .build())
+                .build();
     }
 
     @Override
