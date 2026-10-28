@@ -43,11 +43,6 @@ public class StationController {
         return ResponseEntity.ok(stationService.modifyStation(id, request));
     }
 
-    @PostMapping
-    public ResponseEntity<StationCompositeDto> createStation(@RequestBody StationCreateRequest request) {
-        return ResponseEntity.ok(stationService.createStation(request));
-    }
-
     @PostMapping("/{id}/report-false-negative")
     public ResponseEntity<Map<String, Object>> reportFalseNegative(
             @PathVariable String id,

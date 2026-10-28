@@ -63,87 +63,83 @@ public class StationServiceImpl implements StationService {
     @Transactional
     public StationCompositeDto modifyStation(String id, StationModifyRequest request) {
         StationEntity existing = stationMapper.selectById(id);
+        String now = LocalDateTime.now().format(DATE_FORMATTER);
+
         if (existing == null) {
-            throw new RuntimeException("Station " + id + " not found");
+            // Upsert / Auto-create if not exists
+            BigDecimal lat = BigDecimal.valueOf(2.5898);
+            BigDecimal lng = BigDecimal.valueOf(102.0931);
+            if (request.getCoordinates() != null && request.getCoordinates().size() >= 2) {
+                lat = BigDecimal.valueOf(request.getCoordinates().get(0));
+                lng = BigDecimal.valueOf(request.getCoordinates().get(1));
+            }
+
+            boolean isComplete = Boolean.TRUE.equals(request.getIsProfileComplete())
+                    || (request.getPlantationZone() != null && !request.getPlantationZone().trim().isEmpty() && !request.getPlantationZone().contains("Unassigned"));
+
+            existing = StationEntity.builder()
+                    .id(id)
+                    .code(id)
+                    .name(request.getName() != null ? request.getName() : "Station " + id)
+                    .description(request.getDescription() != null ? request.getDescription() : "Auto-registered from initial telemetry packet.")
+                    .type(request.getType() != null ? request.getType() : "peripheral")
+                    .latitude(lat)
+                    .longitude(lng)
+                    .plantationZone(request.getPlantationZone() != null ? request.getPlantationZone() : "Unassigned (Pending Setup)")
+                    .treeTag(request.getTreeTag() != null ? request.getTreeTag() : "")
+                    .isProfileComplete(isComplete)
+                    .moistureThreshold(request.getMoistureThreshold() != null ? BigDecimal.valueOf(request.getMoistureThreshold()) : BigDecimal.valueOf(65.0))
+                    .samplingFrequencyMinutes(request.getSamplingFrequencyMinutes() != null ? request.getSamplingFrequencyMinutes() : 15)
+                    .heartbeatIntervalHours(request.getHeartbeatIntervalHours() != null ? request.getHeartbeatIntervalHours() : 24)
+                    .isSolarPowered(request.getIsSolarPowered() != null ? request.getIsSolarPowered() : "master".equalsIgnoreCase(request.getType()))
+                    .installedAt(now)
+                    .threatIndex(request.getThreatIndex() != null ? request.getThreatIndex() : 10)
+                    .threatLevel(request.getThreatLevel() != null ? request.getThreatLevel() : "Safe")
+                    .windowHits(request.getWindowHits() != null ? request.getWindowHits() : 0)
+                    .windowTotal(request.getWindowTotal() != null ? request.getWindowTotal() : 1)
+                    .windowSummary(request.getWindowSummary() != null ? request.getWindowSummary() : "Initial telemetry online")
+                    .lastEvaluatedAt(now)
+                    .humanVerificationStatus(request.getHumanVerificationStatus() != null ? request.getHumanVerificationStatus() : "unverified")
+                    .technicianNotes(request.getTechnicianNotes())
+                    .build();
+
+            stationMapper.insert(existing);
+        } else {
+            // Update existing station
+            if (request.getName() != null) existing.setName(request.getName());
+            if (request.getDescription() != null) existing.setDescription(request.getDescription());
+            if (request.getType() != null) existing.setType(request.getType());
+            if (request.getPlantationZone() != null) existing.setPlantationZone(request.getPlantationZone());
+            if (request.getTreeTag() != null) existing.setTreeTag(request.getTreeTag());
+
+            if (request.getIsProfileComplete() != null) {
+                existing.setIsProfileComplete(request.getIsProfileComplete());
+            } else if (request.getPlantationZone() != null && !request.getPlantationZone().trim().isEmpty() && !request.getPlantationZone().contains("Unassigned")) {
+                existing.setIsProfileComplete(true);
+            }
+
+            if (request.getMoistureThreshold() != null) existing.setMoistureThreshold(BigDecimal.valueOf(request.getMoistureThreshold()));
+            if (request.getSamplingFrequencyMinutes() != null) existing.setSamplingFrequencyMinutes(request.getSamplingFrequencyMinutes());
+            if (request.getHeartbeatIntervalHours() != null) existing.setHeartbeatIntervalHours(request.getHeartbeatIntervalHours());
+            if (request.getIsSolarPowered() != null) existing.setIsSolarPowered(request.getIsSolarPowered());
+            if (request.getThreatIndex() != null) existing.setThreatIndex(request.getThreatIndex());
+            if (request.getThreatLevel() != null) existing.setThreatLevel(request.getThreatLevel());
+            if (request.getWindowHits() != null) existing.setWindowHits(request.getWindowHits());
+            if (request.getWindowTotal() != null) existing.setWindowTotal(request.getWindowTotal());
+            if (request.getWindowSummary() != null) existing.setWindowSummary(request.getWindowSummary());
+            if (request.getHumanVerificationStatus() != null) existing.setHumanVerificationStatus(request.getHumanVerificationStatus());
+            if (request.getTechnicianNotes() != null) existing.setTechnicianNotes(request.getTechnicianNotes());
+
+            if (request.getCoordinates() != null && request.getCoordinates().size() >= 2) {
+                existing.setLatitude(BigDecimal.valueOf(request.getCoordinates().get(0)));
+                existing.setLongitude(BigDecimal.valueOf(request.getCoordinates().get(1)));
+            }
+
+            stationMapper.update(existing);
         }
-
-        if (request.getName() != null) existing.setName(request.getName());
-        if (request.getDescription() != null) existing.setDescription(request.getDescription());
-        if (request.getType() != null) existing.setType(request.getType());
-        if (request.getPlantationZone() != null) existing.setPlantationZone(request.getPlantationZone());
-        if (request.getTreeTag() != null) existing.setTreeTag(request.getTreeTag());
-        if (request.getIsProfileComplete() != null) existing.setIsProfileComplete(request.getIsProfileComplete());
-        if (request.getMoistureThreshold() != null) existing.setMoistureThreshold(BigDecimal.valueOf(request.getMoistureThreshold()));
-        if (request.getSamplingFrequencyMinutes() != null) existing.setSamplingFrequencyMinutes(request.getSamplingFrequencyMinutes());
-        if (request.getHeartbeatIntervalHours() != null) existing.setHeartbeatIntervalHours(request.getHeartbeatIntervalHours());
-        if (request.getIsSolarPowered() != null) existing.setIsSolarPowered(request.getIsSolarPowered());
-        if (request.getThreatIndex() != null) existing.setThreatIndex(request.getThreatIndex());
-        if (request.getThreatLevel() != null) existing.setThreatLevel(request.getThreatLevel());
-        if (request.getWindowHits() != null) existing.setWindowHits(request.getWindowHits());
-        if (request.getWindowTotal() != null) existing.setWindowTotal(request.getWindowTotal());
-        if (request.getWindowSummary() != null) existing.setWindowSummary(request.getWindowSummary());
-        if (request.getHumanVerificationStatus() != null) existing.setHumanVerificationStatus(request.getHumanVerificationStatus());
-        if (request.getTechnicianNotes() != null) existing.setTechnicianNotes(request.getTechnicianNotes());
-
-        if (request.getCoordinates() != null && request.getCoordinates().size() >= 2) {
-            existing.setLatitude(BigDecimal.valueOf(request.getCoordinates().get(0)));
-            existing.setLongitude(BigDecimal.valueOf(request.getCoordinates().get(1)));
-        }
-
-        stationMapper.update(existing);
 
         TelemetryEventDto latest = eventService.getLatestEventForStation(id);
         StationCompositeDto composed = composeStation(existing, latest);
-
-        // Broadcast station_updated
-        Map<String, Object> wsPayload = new HashMap<>();
-        wsPayload.put("type", "station_updated");
-        wsPayload.put("station", composed);
-        webSocketHandler.broadcast(wsPayload);
-
-        return composed;
-    }
-
-    @Override
-    @Transactional
-    public StationCompositeDto createStation(StationCreateRequest request) {
-        String now = LocalDateTime.now().format(DATE_FORMATTER);
-        String id = request.getId() != null ? request.getId() : "ST-" + String.format("%02d", stationMapper.countTotal());
-
-        BigDecimal lat = BigDecimal.valueOf(2.5898);
-        BigDecimal lng = BigDecimal.valueOf(102.0931);
-        if (request.getCoordinates() != null && request.getCoordinates().size() >= 2) {
-            lat = BigDecimal.valueOf(request.getCoordinates().get(0));
-            lng = BigDecimal.valueOf(request.getCoordinates().get(1));
-        }
-
-        StationEntity entity = StationEntity.builder()
-                .id(id)
-                .code(request.getCode() != null ? request.getCode() : id)
-                .name(request.getName() != null ? request.getName() : "Station " + id)
-                .description(request.getDescription() != null ? request.getDescription() : "Auto-registered from initial telemetry packet.")
-                .type(request.getType() != null ? request.getType() : "peripheral")
-                .latitude(lat)
-                .longitude(lng)
-                .plantationZone(request.getPlantationZone() != null ? request.getPlantationZone() : "")
-                .treeTag(request.getTreeTag() != null ? request.getTreeTag() : "")
-                .isProfileComplete(request.getIsProfileComplete() != null ? request.getIsProfileComplete() : false)
-                .moistureThreshold(request.getMoistureThreshold() != null ? BigDecimal.valueOf(request.getMoistureThreshold()) : BigDecimal.valueOf(65.0))
-                .samplingFrequencyMinutes(request.getSamplingFrequencyMinutes() != null ? request.getSamplingFrequencyMinutes() : 15)
-                .heartbeatIntervalHours(request.getHeartbeatIntervalHours() != null ? request.getHeartbeatIntervalHours() : 24)
-                .isSolarPowered("master".equalsIgnoreCase(request.getType()))
-                .installedAt(request.getInstalledAt() != null ? request.getInstalledAt() : now)
-                .threatIndex(request.getThreatIndex() != null ? request.getThreatIndex() : 10)
-                .threatLevel(request.getThreatLevel() != null ? request.getThreatLevel() : "Safe")
-                .windowHits(request.getWindowHits() != null ? request.getWindowHits() : 0)
-                .windowTotal(request.getWindowTotal() != null ? request.getWindowTotal() : 1)
-                .windowSummary(request.getWindowSummary() != null ? request.getWindowSummary() : "Initial telemetry online")
-                .lastEvaluatedAt(now)
-                .humanVerificationStatus("unverified")
-                .build();
-
-        stationMapper.insert(entity);
-        StationCompositeDto composed = composeStation(entity, null);
 
         // Broadcast station_updated
         Map<String, Object> wsPayload = new HashMap<>();

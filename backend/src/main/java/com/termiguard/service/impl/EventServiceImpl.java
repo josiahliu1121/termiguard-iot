@@ -114,6 +114,42 @@ public class EventServiceImpl implements EventService {
             entity.setIsMoistureTriggered(false);
         }
 
+        // Auto-Discovery: If station doesn't exist, auto-register as an unconfigured station
+        if (stationMapper.selectById(entity.getStationId()) == null) {
+            String now = LocalDateTime.now().format(DATE_FORMATTER);
+            StationEntity autoStation = StationEntity.builder()
+                    .id(entity.getStationId())
+                    .code(entity.getStationId())
+                    .name("Station " + entity.getStationId() + " (Auto-Discovered)")
+                    .description("Auto-registered from initial telemetry packet. Awaiting field metadata configuration.")
+                    .type("peripheral")
+                    .latitude(BigDecimal.valueOf(2.5898))
+                    .longitude(BigDecimal.valueOf(102.0931))
+                    .plantationZone("Unassigned (Pending Setup)")
+                    .treeTag("")
+                    .isProfileComplete(false)
+                    .moistureThreshold(BigDecimal.valueOf(65.00))
+                    .samplingFrequencyMinutes(15)
+                    .heartbeatIntervalHours(24)
+                    .isSolarPowered(false)
+                    .installedAt(now)
+                    .threatIndex(entity.getAiRiskScore() != null ? entity.getAiRiskScore() : 10)
+                    .threatLevel(entity.getPredictLevel() != null ? entity.getPredictLevel() : "Safe")
+                    .windowHits(1)
+                    .windowTotal(1)
+                    .windowSummary("1/1 telemetry cycles - Live Telemetry Active")
+                    .lastEvaluatedAt(now)
+                    .humanVerificationStatus("unverified")
+                    .build();
+            stationMapper.insert(autoStation);
+
+            StationCompositeDto composedAuto = stationService.composeStation(autoStation, null);
+            Map<String, Object> autoWs = new HashMap<>();
+            autoWs.put("type", "station_updated");
+            autoWs.put("station", composedAuto);
+            webSocketHandler.broadcast(autoWs);
+        }
+
         eventMapper.insert(entity);
         TelemetryEventDto dto = entityToDto(entity);
 

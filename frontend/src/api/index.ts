@@ -72,7 +72,7 @@ export const api = {
       return res.json()
     },
 
-    // MODIFY API: Update station coordinates, description, type, plantation zone
+    // MODIFY API: Update station coordinates, description, type, plantation zone, threshold
     async modify(id: string, updates: Partial<StationInfo>): Promise<Station> {
       if (USE_MOCK) return mockService.modifyStationInfo(id, updates)
       const res = await fetch(`${API_BASE}/stations/${id}`, {
@@ -84,20 +84,15 @@ export const api = {
       return res.json()
     },
 
-    async create(station: Omit<StationInfo, 'id'> & { id?: string }): Promise<Station> {
-      if (USE_MOCK) return mockService.addStationInfo(station)
-      const res = await fetch(`${API_BASE}/stations`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(station)
-      })
-      if (!res.ok) throw new Error(`Failed to create station: ${res.statusText}`)
-      return res.json()
-    },
-
     // Backwards compatibility alias
     async update(id: string, updates: Partial<StationInfo>): Promise<Station> {
       return this.modify(id, updates)
+    },
+
+    // Backward compatibility: redirects create to modify (stations are auto-registered upon event capture)
+    async create(station: Partial<StationInfo> & { id?: string }): Promise<Station> {
+      const id = station.id || station.code || 'ST-00'
+      return this.modify(id, station)
     },
 
     // Human-in-the-Loop Ground Truth Inspection APIs

@@ -151,6 +151,8 @@ export const usePlantationStore = defineStore('plantation', () => {
     const idx = stations.value.findIndex(s => s.id === id)
     if (idx !== -1) {
       stations.value[idx] = updated
+    } else {
+      stations.value.push(updated)
     }
     return updated
   }
@@ -160,11 +162,10 @@ export const usePlantationStore = defineStore('plantation', () => {
     return updateStationInfo(id, updates)
   }
 
-  // ADD API: Inserts into Station Information Table
-  async function addNewStation(data: Omit<StationInfo, 'id'>) {
-    const created = await api.stations.create(data)
-    stations.value.push(created)
-    return created
+  // Completes / modifies station profile via PUT /api/v1/stations/{id}
+  async function addNewStation(data: Partial<StationInfo>) {
+    const id = data.id || data.code || (stations.value.length ? `ST-0${stations.value.length}` : 'ST-00')
+    return updateStationInfo(id, data)
   }
 
   // SOP Response Workflow Actions
@@ -329,28 +330,7 @@ export const usePlantationStore = defineStore('plantation', () => {
       if (existing) return existing
 
       const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
-      const created = await api.stations.create({
-        id: stationId,
-        code: stationId,
-        name: `Station ${stationId} (Auto-Discovered)`,
-        description: 'Auto-registered from initial telemetry packet. Awaiting field metadata configuration.',
-        type: 'peripheral',
-        coordinates: [2.58910, 102.09340],
-        plantationZone: 'Unassigned (Pending Setup)',
-        treeTag: '',
-        isProfileComplete: false,
-        moistureThreshold: 65.0,
-        samplingFrequencyMinutes: 15,
-        heartbeatIntervalHours: 24,
-        threatIndex: 45,
-        threatLevel: 'Low',
-        windowHits: 1,
-        windowTotal: 1,
-        windowSummary: '1/1 telemetry cycles - Live Telemetry Active',
-        installedAt: now,
-        humanVerificationStatus: 'unverified'
-      } as any)
-
+      // Capturing telemetry automatically auto-registers the station record on the backend
       await api.events.insert({
         stationId,
         timestamp: now,
@@ -369,7 +349,9 @@ export const usePlantationStore = defineStore('plantation', () => {
         mfccFeatures: [-8.5, 11.2, 6.4, 4.8, 3.1, 2.0, 1.5, 1.1, 0.8, 0.5, 0.4, 0.2, 0.1]
       })
 
-      if (!stations.value.some(s => s.id === created.id)) {
+      // Fetch newly created station or wait for websocket push
+      const created = await api.stations.getById(stationId)
+      if (created && !stations.value.some(s => s.id === created.id)) {
         stations.value.push(created)
       }
       return created
