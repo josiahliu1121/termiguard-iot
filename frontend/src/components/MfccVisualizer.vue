@@ -11,10 +11,6 @@ const props = defineProps<{
   moistureThreshold?: number
 }>()
 
-const emit = defineEmits<{
-  (e: 'wakeAcoustic'): void
-}>()
-
 const coefficients = computed(() => {
   if (props.mfccFeatures && props.mfccFeatures.length === 13) {
     return props.mfccFeatures
@@ -96,14 +92,6 @@ const probabilities = computed(() => {
           <span class="text-slate-400">Waiting for moisture trigger &ge; {{ moistureThreshold || 65 }}%</span>
         </div>
       </div>
-
-      <button
-        @click="emit('wakeAcoustic')"
-        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/80 hover:bg-indigo-500 text-white text-xs font-semibold transition shadow-md"
-      >
-        <Droplets :size="13" />
-        <span>Simulate Moisture Rise &ge; 65% (Wake Sensor)</span>
-      </button>
     </div>
 
     <!-- STATE 2: ACTIVE 15-MINUTE SAMPLING -->

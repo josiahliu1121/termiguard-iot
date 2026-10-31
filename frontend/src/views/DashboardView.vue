@@ -159,13 +159,6 @@ async function handleSimulateNewDiscovery() {
   await store.simulateNewStationDiscovery(nextId)
 }
 
-function handleWakeAcoustic() {
-  if (store.selectedStation) {
-    store.toggleMoistureBreach(store.selectedStation.id)
-    loadSelectedStationHistory(store.selectedStation.id)
-  }
-}
-
 watch(() => store.selectedStationId, (newId) => {
   loadSelectedStationHistory(newId)
 })
@@ -542,7 +535,6 @@ onMounted(async () => {
           :is-acoustic-gated="store.selectedStation.isAcousticGated"
           :soil-moisture="store.selectedStation.soilMoisture"
           :moisture-threshold="store.selectedStation.moistureThreshold"
-          @wake-acoustic="handleWakeAcoustic"
         />
 
         <!-- Live Telemetry Feed (15m Events & Daily Keepalives via WebSocket) -->

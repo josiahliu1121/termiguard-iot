@@ -11,12 +11,7 @@ import {
   Layers,
   Radio,
   Wifi,
-  Play,
-  RotateCcw,
   Bug,
-  Clock,
-  Droplets,
-  Heart,
   History
 } from '@lucide/vue'
 
@@ -34,18 +29,6 @@ const navItems = [
 ]
 
 const activeAlertCount = computed(() => store.activeAlerts.length)
-
-function handleAdvance15m() {
-  store.advance15MinPoll()
-}
-
-function handleToggleMoistureTrigger() {
-  store.toggleMoistureBreach('ST-02')
-}
-
-function handleDailyHeartbeat() {
-  store.emitHeartbeat('ST-00')
-}
 </script>
 
 <template>
@@ -129,44 +112,6 @@ function handleDailyHeartbeat() {
           </span>
         </router-link>
       </nav>
-
-      <!-- Simulation Action Buttons -->
-      <div class="flex items-center gap-2">
-        <!-- 1. Advance 15m Poll Cycle -->
-        <button
-          @click="handleAdvance15m"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition"
-          title="Simulate the arrival of the 15-minute sensor sampling window"
-        >
-          <Clock :size="13" />
-          <span>Trigger 15m Poll</span>
-        </button>
-
-        <!-- 2. Force Daily Heartbeat -->
-        <button
-          @click="handleDailyHeartbeat"
-          class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 transition"
-          title="Simulate 24-hour alive keepalive ping (soil moisture + battery level)"
-        >
-          <Heart :size="13" />
-          <span>Daily Ping</span>
-        </button>
-
-        <!-- 3. Toggle Moisture Threshold Breach -->
-        <button
-          @click="handleToggleMoistureTrigger"
-          class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all shadow-md"
-          :class="[
-            store.isSimulatingBreach || store.triggeredStationsCount > 0
-              ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse'
-              : 'bg-amber-600 hover:bg-amber-500 text-white'
-          ]"
-          title="Toggle soil moisture rising above 65% to wake acoustic piezo circuit"
-        >
-          <Droplets :size="13" />
-          <span>{{ store.triggeredStationsCount > 0 ? 'Clear Moisture Trigger' : 'Breach Moisture (>65%)' }}</span>
-        </button>
-      </div>
     </div>
   </header>
 </template>

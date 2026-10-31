@@ -348,7 +348,6 @@ onMounted(() => {
           :is-acoustic-gated="currentStation.isAcousticGated"
           :soil-moisture="currentStation.soilMoisture"
           :moisture-threshold="currentStation.moistureThreshold"
-          @wake-acoustic="() => { store.toggleMoistureBreach(currentStation.id); loadHistory(); }"
         />
       </div>
     </div>

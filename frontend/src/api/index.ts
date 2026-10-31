@@ -153,16 +153,18 @@ export const api = {
       const res = await fetch(`${API_BASE}/stations/${stationId}/events`)
       if (!res.ok) throw new Error(`Failed to fetch events for station ${stationId}: ${res.statusText}`)
       return res.json()
-    },
+    }
+  },
 
-    async insert(event: Partial<StationEvent>): Promise<StationEvent> {
-      if (USE_MOCK) return mockService.insertEvent(event as any)
-      const res = await fetch(`${API_BASE}/events`, {
+  // 4G Telemetry Cellular Uplink API
+  telemetry: {
+    async uplink(payload: any): Promise<any> {
+      const res = await fetch(`${API_BASE}/telemetry/uplink`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(event)
+        body: JSON.stringify(payload)
       })
-      if (!res.ok) throw new Error(`Failed to insert event: ${res.statusText}`)
+      if (!res.ok) throw new Error(`Failed to transmit telemetry uplink: ${res.statusText}`)
       return res.json()
     }
   },
@@ -317,104 +319,6 @@ export const api = {
       return () => {
         const index = socketSubscribers.indexOf(callback)
         if (index !== -1) socketSubscribers.splice(index, 1)
-      }
-    },
-
-    async advance15MinCycle() {
-      if (USE_MOCK) {
-        mockWebSocket.advance15MinCycle()
-      } else {
-        const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
-        await api.events.insert({
-          stationId: 'ST-02',
-          timestamp: now,
-          eventType: '15min_triggered_event',
-          batteryLevel: 86,
-          batteryVoltage: 3.88,
-          soilMoisture: 71.2,
-          acousticScore: 84,
-          temperature: 29.4,
-          humidity: 84.0,
-          rssi: -88,
-          snr: 6.0,
-          predictLevel: 'High',
-          aiRiskScore: 88,
-          isMoistureTriggered: true,
-          mfccFeatures: [-10.1, 14.9, 8.5, 6.9, 4.5, 3.3, 2.5, 1.9, 1.3, 1.0, 0.8, 0.5, 0.3]
-        })
-      }
-    },
-
-    async emitDailyHeartbeat(stationId: string = 'ST-00') {
-      if (USE_MOCK) {
-        mockWebSocket.emitDailyHeartbeat(stationId)
-      } else {
-        const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
-        await api.events.insert({
-          stationId,
-          timestamp: now,
-          eventType: 'daily_heartbeat',
-          batteryLevel: 98,
-          batteryVoltage: 4.15,
-          soilMoisture: 56.2,
-          acousticScore: null,
-          temperature: 29.5,
-          humidity: 78.0,
-          rssi: -72,
-          snr: 9.4,
-          predictLevel: 'Safe',
-          aiRiskScore: 10,
-          isMoistureTriggered: false
-        })
-      }
-    },
-
-    async triggerMoistureBreach(stationId: string = 'ST-02') {
-      if (USE_MOCK) {
-        mockWebSocket.triggerMoistureBreach(stationId)
-      } else {
-        const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
-        await api.events.insert({
-          stationId,
-          timestamp: now,
-          eventType: '15min_triggered_event',
-          batteryLevel: 85,
-          batteryVoltage: 3.86,
-          soilMoisture: 73.0,
-          acousticScore: 88,
-          temperature: 29.6,
-          humidity: 85.0,
-          rssi: -88,
-          snr: 5.8,
-          predictLevel: 'High',
-          aiRiskScore: 92,
-          isMoistureTriggered: true,
-          mfccFeatures: [-10.5, 15.2, 8.8, 7.1, 4.7, 3.5, 2.7, 2.0, 1.4, 1.1, 0.9, 0.6, 0.4]
-        })
-      }
-    },
-
-    async resetToBaseline(stationId: string = 'ST-02') {
-      if (USE_MOCK) {
-        mockWebSocket.resetToBaseline(stationId)
-      } else {
-        const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
-        await api.events.insert({
-          stationId,
-          timestamp: now,
-          eventType: 'daily_heartbeat',
-          batteryLevel: 90,
-          batteryVoltage: 3.98,
-          soilMoisture: 56.0,
-          acousticScore: null,
-          temperature: 29.0,
-          humidity: 78.0,
-          rssi: -82,
-          snr: 8.0,
-          predictLevel: 'Safe',
-          aiRiskScore: 10,
-          isMoistureTriggered: false
-        })
       }
     }
   }

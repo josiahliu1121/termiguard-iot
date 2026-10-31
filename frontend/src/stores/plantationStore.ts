@@ -15,7 +15,6 @@ export const usePlantationStore = defineStore('plantation', () => {
   const allEvents = ref<StationEvent[]>([])
   const isLoading = ref<boolean>(false)
   const lastSyncTime = ref<string>('Connecting...')
-  const isSimulatingBreach = ref<boolean>(false)
 
   // Computed
   const unconfiguredStations = computed(() => {
@@ -295,28 +294,6 @@ export const usePlantationStore = defineStore('plantation', () => {
     return { tp, fp, fn, tn, total, precision, recall, accuracy, falseAlarmRate, missRate }
   })
 
-  // Simulation Triggers
-  function advance15MinPoll() {
-    api.telemetrySocket.advance15MinCycle()
-  }
-
-  function emitHeartbeat(stationId?: string) {
-    api.telemetrySocket.emitDailyHeartbeat(stationId || selectedStationId.value)
-  }
-
-  function toggleMoistureBreach(stationId?: string) {
-    const targetId = stationId || selectedStationId.value
-    const targetStation = stations.value.find(s => s.id === targetId)
-
-    if (targetStation && !targetStation.isAcousticGated) {
-      isSimulatingBreach.value = false
-      api.telemetrySocket.resetToBaseline(targetId)
-    } else {
-      isSimulatingBreach.value = true
-      api.telemetrySocket.triggerMoistureBreach(targetId)
-    }
-  }
-
   async function simulateNewStationDiscovery(stationId: string = 'ST-05') {
     if (api.isMock) {
       const { mockWebSocket } = await import('@/mocks/mockWebSocket')
@@ -331,10 +308,10 @@ export const usePlantationStore = defineStore('plantation', () => {
 
       const now = new Date().toISOString().replace('T', ' ').substring(0, 19)
       // Capturing telemetry automatically auto-registers the station record on the backend
-      await api.events.insert({
+      await api.telemetry.uplink({
         stationId,
         timestamp: now,
-        eventType: 'daily_heartbeat',
+        eventType: '15min_triggered_event',
         batteryLevel: 98,
         batteryVoltage: 4.14,
         soilMoisture: 67.4,
@@ -343,8 +320,6 @@ export const usePlantationStore = defineStore('plantation', () => {
         humidity: 81.0,
         rssi: -79,
         snr: 8.4,
-        predictLevel: 'Low',
-        aiRiskScore: 48,
         isMoistureTriggered: true,
         mfccFeatures: [-8.5, 11.2, 6.4, 4.8, 3.1, 2.0, 1.5, 1.1, 0.8, 0.5, 0.4, 0.2, 0.1]
       })
@@ -387,7 +362,6 @@ export const usePlantationStore = defineStore('plantation', () => {
     loadCases,
     isLoading,
     lastSyncTime,
-    isSimulatingBreach,
     init,
     selectStation,
     updateStationInfo,
@@ -399,9 +373,6 @@ export const usePlantationStore = defineStore('plantation', () => {
     createVerificationCase,
     transitionVerificationCase,
     terminateVerificationCase,
-    advance15MinPoll,
-    emitHeartbeat,
-    toggleMoistureBreach,
     simulateNewStationDiscovery
   }
 })
